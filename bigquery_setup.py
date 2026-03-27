@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = bigquery.Client(project='soundpulse-490820')
+client = bigquery.Client(project='soundpulse-production')
 dataset_id = 'music_analytics'
 bucket_name = 'soundpulse-raw-lake_ojmo'
 

@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = storage.Client(project='soundpulse-490820')
-bucket = client.bucket('soundpulse-raw-lake_ojmo')
+client = storage.Client(project='soundpulse-production')
+bucket = client.bucket('soundpulse-prod-raw-lake')
 
 date_partition = datetime.now().strftime('%Y/%m/%d')
 
