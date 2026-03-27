@@ -105,3 +105,8 @@ if __name__ == "__main__":
         print(df[["country_code", "market", "title", "view_count"]].head(10))
     else:
         print("No videos fetched")
+
+import sys
+sys.path.append('..')
+from upload_helper import upload_to_gcs
+upload_to_gcs(videos, 'youtube')

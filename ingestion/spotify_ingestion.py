@@ -291,3 +291,8 @@ if __name__ == "__main__":
         print(df[cols + audio_cols].head(10))
     else:
         print("No tracks fetched")
+
+import sys
+sys.path.append('..')
+from upload_helper import upload_to_gcs
+upload_to_gcs(df.to_dict('records'), 'spotify')

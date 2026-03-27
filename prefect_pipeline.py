@@ -1,9 +1,9 @@
 from prefect import flow, task
 from datetime import datetime
-from load_secrets import load_secrets_to_env
 import subprocess
 import os
 import sys
+from load_secrets import load_secrets_to_env
 
 PYTHON_EXE = sys.executable
 
@@ -36,12 +36,6 @@ def ingest_billboard():
     result = subprocess.run([PYTHON_EXE, "ingestion/billboard_ingestion.py"], capture_output=True, text=True)
     if result.returncode != 0:
         raise Exception(f"Billboard ingestion failed: {result.stderr}")
-
-@task(name="Upload to GCS", retries=3, retry_delay_seconds=30)
-def upload_to_gcs():
-    result = subprocess.run([PYTHON_EXE, "gcs_upload.py"], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception(f"GCS upload failed: {result.stderr}")
 
 @task(name="Load to BigQuery", retries=3, retry_delay_seconds=30)
 def load_to_bigquery():
@@ -81,6 +75,7 @@ def run_dbt():
 @flow(name="SoundPulse Daily Pipeline", log_prints=True)
 def soundpulse_pipeline():
     load_secrets_to_env()
+    
     reddit_future = ingest_reddit.submit()
     news_future = ingest_news.submit()
     spotify_future = ingest_spotify.submit()
@@ -93,7 +88,6 @@ def soundpulse_pipeline():
     youtube_future.result()
     billboard_future.result()
     
-    upload_to_gcs()
     load_to_bigquery()
     run_dbt()
 

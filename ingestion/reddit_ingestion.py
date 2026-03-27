@@ -91,3 +91,9 @@ def save_to_local(posts: list[dict]) -> str:
 if __name__ == "__main__":
     posts = run_reddit_ingestion()
     save_to_local(posts)
+
+# Upload to GCS
+import sys
+sys.path.append('..')
+from upload_helper import upload_to_gcs
+upload_to_gcs(posts, 'reddit')

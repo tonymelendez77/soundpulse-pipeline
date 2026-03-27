@@ -237,3 +237,8 @@ if __name__ == "__main__":
         print(df[["source", "topic", "title"]].head(10))
     else:
         print("No articles fetched")
+
+import sys
+sys.path.append('..')
+from upload_helper import upload_to_gcs
+upload_to_gcs(articles, 'news')
