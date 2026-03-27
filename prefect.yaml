@@ -22,7 +22,7 @@ pull:
     repository: https://github.com/tonymelendez77/soundpulse-pipeline.git
     branch: main
 - prefect.deployments.steps.pip_install_requirements:
-    requirements_file: requirements.txt
+requirements_file: "{{ git_clone.directory }}/requirements.txt"
     directory: "{{ git_clone.directory }}"
 
 # the deployments section allows you to provide configuration
