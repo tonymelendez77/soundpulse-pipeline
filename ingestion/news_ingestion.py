@@ -231,12 +231,10 @@ def save_to_local(df: pd.DataFrame) -> str:
 
 
 if __name__ == "__main__":
-    df = run_news_ingestion()
-    save_to_local(df)
-    if not df.empty:
-        print(df[["source", "topic", "title"]].head(10))
-    else:
-        print("No articles fetched")
+    articles = run_news_ingestion()
+    save_to_local(articles)
+    from upload_helper import upload_to_gcs
+    upload_to_gcs(articles, 'news')
 
 import sys
 sys.path.append('..')

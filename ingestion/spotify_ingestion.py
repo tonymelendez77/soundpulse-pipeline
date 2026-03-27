@@ -285,12 +285,8 @@ def save_to_local(df: pd.DataFrame) -> str:
 if __name__ == "__main__":
     df = run_spotify_ingestion()
     save_to_local(df)
-    if not df.empty:
-        cols = ["source", "market", "title", "artist", "popularity"]
-        audio_cols = [c for c in ["energy", "valence", "tempo"] if c in df.columns]
-        print(df[cols + audio_cols].head(10))
-    else:
-        print("No tracks fetched")
+    from upload_helper import upload_to_gcs
+    upload_to_gcs(df.to_dict('records'), 'spotify')
 
 import sys
 sys.path.append('..')

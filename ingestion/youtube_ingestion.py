@@ -101,12 +101,5 @@ def save_to_local(df: pd.DataFrame) -> str:
 if __name__ == "__main__":
     df = run_youtube_ingestion()
     save_to_local(df)
-    if not df.empty:
-        print(df[["country_code", "market", "title", "view_count"]].head(10))
-    else:
-        print("No videos fetched")
-
-import sys
-sys.path.append('..')
-from upload_helper import upload_to_gcs
-upload_to_gcs(videos, 'youtube')
+    from upload_helper import upload_to_gcs
+    upload_to_gcs(df.to_dict('records'), 'youtube')

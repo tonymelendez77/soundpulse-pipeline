@@ -96,12 +96,5 @@ def save_to_local(df: pd.DataFrame) -> str:
 if __name__ == "__main__":
     df = run_billboard_ingestion()
     save_to_local(df)
-    if not df.empty:
-        print(df[["chart_name", "rank", "title", "artist"]].head(10))
-    else:
-        print("No songs fetched")
-
-import sys
-sys.path.append('..')
-from upload_helper import upload_to_gcs
-upload_to_gcs(chart_data, 'billboard')
+    from upload_helper import upload_to_gcs
+    upload_to_gcs(df.to_dict('records'), 'billboard')
