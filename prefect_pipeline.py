@@ -1,5 +1,6 @@
 from prefect import flow, task
 from datetime import datetime
+from load_secrets import load_secrets_to_env
 import subprocess
 import os
 import sys
@@ -79,6 +80,7 @@ def run_dbt():
 
 @flow(name="SoundPulse Daily Pipeline", log_prints=True)
 def soundpulse_pipeline():
+    load_secrets_to_env()
     reddit_future = ingest_reddit.submit()
     news_future = ingest_news.submit()
     spotify_future = ingest_spotify.submit()
