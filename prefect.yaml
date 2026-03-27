@@ -16,8 +16,10 @@ work_pool:
   job_variables: {}
 pull:
 - prefect.deployments.steps.git_clone:
+    id: git_clone
     repository: https://github.com/tonymelendez77/soundpulse-pipeline.git
     branch: main
-- prefect.deployments.steps.pip_install_requirements:
-    directory: "{{ git_clone.directory }}"
-    requirements_file: requirements.txt
+- prefect.deployments.steps.run_shell_script:
+    id: install_deps
+    script: pip install requests praw google-cloud-storage python-dotenv newsapi-python pygooglenews mediastack pandas kaggle google-cloud-bigquery dbt-bigquery prefect prefect-gcp
+    stream_output: true
