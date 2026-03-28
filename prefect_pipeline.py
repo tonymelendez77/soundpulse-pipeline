@@ -54,6 +54,41 @@ def load_to_bigquery():
 
 @task(name="Run dbt", retries=2, retry_delay_seconds=60)
 def run_dbt():
+    import os
+    from pathlib import Path
+    
+    # Create .dbt directory and profiles.yml in cloud
+    dbt_dir = Path.home() / '.dbt'
+    dbt_dir.mkdir(exist_ok=True)
+    
+    profiles_content = """
+soundpulse_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: soundpulse-production
+      dataset: dbt_transformed
+      threads: 4
+      timeout_seconds: 300
+      location: US
+      priority: interactive
+      keyfile: /tmp/gcp-keyfile.json
+"""
+    
+    (dbt_dir / 'profiles.yml').write_text(profiles_content)
+    
+    # Write service account key to temp file
+    try:
+        from prefect_gcp import GcpCredentials
+        gcp_credentials = GcpCredentials.load("gcp-credentials")
+        import json
+        keyfile_path = Path('/tmp/gcp-keyfile.json')
+        keyfile_path.write_text(json.dumps(gcp_credentials.service_account_info))
+    except:
+        pass
+    
     result = subprocess.run(
         ["dbt", "run"],
         cwd="soundpulse_dbt",
