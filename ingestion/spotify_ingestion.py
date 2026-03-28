@@ -285,8 +285,26 @@ def save_to_local(df: pd.DataFrame) -> str:
 if __name__ == "__main__":
     df = run_spotify_ingestion()
     save_to_local(df)
+    
+    # Clean DataFrame before upload
+    df = df.fillna({
+        'popularity': 0,
+        'danceability': 0.5,
+        'energy': 0.5,
+        'valence': 0.5,
+        'tempo': 120,
+        'acousticness': 0.5,
+        'instrumentalness': 0.5,
+        'liveness': 0.5,
+        'loudness': -10,
+        'speechiness': 0.5,
+        'key': 0,
+        'mode': 0,
+        'time_signature': 4
+    })
+    
     from upload_helper import upload_to_gcs
-    upload_to_gcs(df.to_dict('records'), 'spotify')
+    upload_to_gcs(df, 'spotify')
 
 import sys
 sys.path.append('..')
