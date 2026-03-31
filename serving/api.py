@@ -6,12 +6,15 @@ Run:
     uvicorn serving.api:app --reload --port 8000
 """
 
+import json
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
 PROJECT = "soundpulse-production"
 DATASET = f"{PROJECT}.dbt_transformed"
@@ -24,7 +27,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = bigquery.Client(project=PROJECT)
+
+def _make_client() -> bigquery.Client:
+    """
+    Supports three credential modes (in priority order):
+    1. GCP_SERVICE_ACCOUNT_JSON env var — JSON string (Render secret env var)
+    2. GOOGLE_APPLICATION_CREDENTIALS env var — path to key file (local / GH Actions)
+    3. Application Default Credentials (local dev with gcloud auth)
+    """
+    raw = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
+    if raw:
+        info = json.loads(raw)
+        creds = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        return bigquery.Client(project=PROJECT, credentials=creds)
+    # Falls through to ADC / GOOGLE_APPLICATION_CREDENTIALS automatically
+    return bigquery.Client(project=PROJECT)
+
+
+client = _make_client()
 
 
 def _run(query: str) -> list[dict]:

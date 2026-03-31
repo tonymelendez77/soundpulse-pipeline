@@ -13,10 +13,12 @@ service-account*.json
 
 # Data output files — goes to GCS, not git
 *.jsonl
-*.txt
 data/
 # but keep the static export for GitHub Pages
 !docs/data/
+# keep requirements and text configs
+!requirements*.txt
+!*.md
 
 # Generated / cache
 librosa_cache.json
