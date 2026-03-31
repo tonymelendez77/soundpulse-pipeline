@@ -316,11 +316,12 @@ def build_prompt(mood: str, avg_features: dict) -> str:
     else:
         acoustic_desc = None
 
-    parts = [prefix, tempo_desc, energy_desc, valence_desc, dance_desc]
+    # prefix already ends with comma — join remaining parts with ", "
+    descriptors = [tempo_desc, energy_desc, valence_desc, dance_desc]
     if acoustic_desc:
-        parts.append(acoustic_desc)
+        descriptors.append(acoustic_desc)
 
-    return " ".join(parts)
+    return f"{prefix} {', '.join(descriptors)}"
 
 
 # ── MusicGen ─────────────────────────────────────────────────────────────────────
