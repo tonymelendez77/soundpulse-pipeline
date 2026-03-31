@@ -1143,7 +1143,7 @@
 <!-- FOOTER -->
 <footer>
   <p>Built as a portfolio project ·
-    <a href="https://github.com" target="_blank">GitHub</a>
+    <a href="https://github.com/tonymelendez77/soundpulse-pipeline" target="_blank">GitHub</a>
   </p>
   <p style="margin-top:6px; font-size:.78rem;">
     Data: Guardian API · Spotify · Last.fm · Billboard · iTunes · YouTube · Reddit
@@ -1796,9 +1796,12 @@ async function initRunHistory() {
     const pills = completedMods.slice(0,6).map(m => `<span class="run-mod-pill">${m}</span>`).join('') +
                   (completedMods.length > 6 ? `<span class="run-mod-pill">+${completedMods.length-6}</span>` : '');
     const pct = r.tasks_total > 0 ? Math.round((r.tasks_ok||0)/r.tasks_total*100) : 100;
+    const runLink = r.run_url
+      ? `<a href="${r.run_url}" target="_blank" style="color:var(--accent);font-size:.72rem;text-decoration:none;margin-left:6px">↗ logs</a>`
+      : '';
     return `
       <div class="run-row">
-        <span style="font-variant-numeric:tabular-nums; color:var(--muted)">${(r.started_at||'').replace('T',' ').slice(0,16)} UTC</span>
+        <span style="font-variant-numeric:tabular-nums; color:var(--muted)">${(r.started_at||'').replace('T',' ').slice(0,16)} UTC${runLink}</span>
         <span class="${statusClass}">${statusIcon}</span>
         <span>${dur}</span>
         <span style="color:var(--muted)">${completedMods.length} / 14</span>

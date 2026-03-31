@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: soundpulse-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements_api.txt
+    startCommand: uvicorn serving.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GCP_SERVICE_ACCOUNT_JSON
+        sync: false   # set manually in Render dashboard — paste key JSON here
+    healthCheckPath: /health
+    autoDeploy: true

@@ -25,9 +25,21 @@ from pathlib import Path
 
 import pandas as pd
 from google.cloud import bigquery, storage
+from google.oauth2 import service_account
 from loguru import logger
 
 PROJECT = "soundpulse-production"
+
+
+def _make_clients():
+    raw = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
+    if raw:
+        info = json.loads(raw)
+        scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        creds = service_account.Credentials.from_service_account_info(info, scopes=scopes)
+        return bigquery.Client(project=PROJECT, credentials=creds), \
+               storage.Client(project=PROJECT, credentials=creds)
+    return bigquery.Client(project=PROJECT), storage.Client(project=PROJECT)
 DATASET = f"{PROJECT}.dbt_transformed"
 GCS_BUCKET = "soundpulse-prod-raw-lake"
 
@@ -181,7 +193,7 @@ def export_generated_tracks(client) -> dict | None:
     return data[0] if data else None
 
 
-def download_wav(latest: dict | None) -> None:
+def download_wav(latest: dict | None, gcs_client=None) -> None:
     if not latest:
         logger.warning("No generated tracks found — skipping WAV download")
         return
@@ -191,13 +203,13 @@ def download_wav(latest: dict | None) -> None:
         logger.warning(f"Unexpected GCS path: {gcs_path}")
         return
 
-    # gs://soundpulse-prod-raw-lake/generated/2026-03-16_aggressive.wav
     parts = gcs_path[5:].split("/", 1)
     bucket_name, blob_name = parts[0], parts[1]
 
     dest = AUDIO_DIR / "track.wav"
-    gcs = storage.Client(project=PROJECT)
-    bucket = gcs.bucket(bucket_name)
+    if gcs_client is None:
+        gcs_client = storage.Client(project=PROJECT)
+    bucket = gcs_client.bucket(bucket_name)
     bucket.blob(blob_name).download_to_filename(str(dest))
     size_kb = dest.stat().st_size // 1024
     logger.info(f"  → docs/audio/track.wav ({size_kb} KB) from {gcs_path}")
@@ -215,7 +227,7 @@ def write_meta(exports: dict) -> None:
 
 def main():
     logger.info("SoundPulse — exporting static data for GitHub Pages")
-    client = bigquery.Client(project=PROJECT)
+    client, _ = _make_clients()
 
     counts = {}
 
@@ -253,7 +265,8 @@ def main():
     counts["generated_tracks"] = 1 if latest else 0
 
     logger.info("Downloading WAV from GCS...")
-    download_wav(latest)
+    _, gcs_client = _make_clients()
+    download_wav(latest, gcs_client)
 
     write_meta(counts)
 

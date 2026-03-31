@@ -1,0 +1,9 @@
+# FastAPI backend (Render) — keep lean for fast deploys
+fastapi==0.135.2
+uvicorn==0.42.0
+google-cloud-bigquery==3.40.1
+google-cloud-bigquery-storage
+db-dtypes==1.5.0
+pyarrow
+pandas
+numpy

@@ -1,0 +1,157 @@
+name: SoundPulse Daily Pipeline
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC every day
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+concurrency:
+  group: soundpulse-pipeline
+  cancel-in-progress: false  # never cancel a running pipeline
+
+jobs:
+  pipeline:
+    name: "14-Module Pipeline"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      # ── 0. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      # ── 1. Python setup ──────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ── 2. Write GCP service account key ────────────────────────────────────
+      - name: Write GCP credentials
+        run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > /tmp/gcp-key.json
+
+      # ── 3. Install dependencies ──────────────────────────────────────────────
+      - name: Install Python deps
+        run: pip install -r requirements_pipeline.txt
+
+      # ── 4. Install dbt profile ───────────────────────────────────────────────
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'EOF'
+          soundpulse:
+            target: prod
+            outputs:
+              prod:
+                type: bigquery
+                method: service-account
+                project: soundpulse-production
+                dataset: dbt_transformed
+                keyfile: /tmp/gcp-key.json
+                threads: 4
+                timeout_seconds: 300
+                location: US
+          EOF
+
+      # ── 5. MODULE 1: News + Reddit + YouTube ingestion ───────────────────────
+      - name: "M1 · News ingestion"
+        run: python ingestion/news_ingestion.py
+        continue-on-error: false
+
+      - name: "M1 · Reddit ingestion"
+        run: python ingestion/reddit_ingestion.py
+        continue-on-error: true   # non-critical if Reddit API is slow
+
+      - name: "M1 · YouTube ingestion"
+        run: python ingestion/youtube_ingestion.py
+        continue-on-error: true
+
+      # ── 6. MODULE 2: Spotify audio features ─────────────────────────────────
+      - name: "M2 · Spotify features"
+        run: python ingestion/spotify_ingestion.py
+        continue-on-error: true
+
+      # ── 7. MODULE 3-5: iTunes, Last.fm, Billboard ────────────────────────────
+      - name: "M3 · iTunes trending"
+        run: python ingestion/itunes_ingestion.py
+        continue-on-error: true
+
+      - name: "M4 · Last.fm trending"
+        run: python ingestion/lastfm_ingestion.py
+        continue-on-error: true
+
+      - name: "M5 · Billboard backfill"
+        run: python ingestion/historical_backfill.py
+        continue-on-error: true
+
+      # ── 8. MODULE 6: Librosa audio features ─────────────────────────────────
+      - name: "M6 · Librosa audio features"
+        run: python ingestion/audio_features_librosa.py
+        continue-on-error: true
+
+      # ── 9. MODULES 7-8: dbt run + test ──────────────────────────────────────
+      - name: "M7-8 · dbt run"
+        working-directory: soundpulse_dbt
+        run: dbt run --profiles-dir ~/.dbt
+
+      - name: "M7-8 · dbt test"
+        working-directory: soundpulse_dbt
+        run: dbt test --profiles-dir ~/.dbt
+        continue-on-error: true   # failing tests shouldn't stop ML
+
+      # ── 10. MODULE 9: DistilRoBERTa emotion NLP ──────────────────────────────
+      - name: "M9 · Emotion NLP"
+        run: python ingestion/emotion_classification.py
+
+      # ── 11. MODULE 10: KMeans audio clustering ────────────────────────────────
+      - name: "M10 · KMeans clustering"
+        run: python ingestion/audio_clustering.py
+
+      # ── 12. MODULE 11: Pearson correlation ───────────────────────────────────
+      - name: "M11 · Pearson correlation"
+        run: python ingestion/emotion_music_correlation.py
+
+      # ── 13. MODULE 12: XGBoost + SHAP ────────────────────────────────────────
+      - name: "M12 · XGBoost + SHAP predictions"
+        run: python ingestion/ml_predictions.py
+
+      # ── 14. dbt second pass (picks up ML output tables) ──────────────────────
+      - name: "M12b · dbt re-run for ML tables"
+        working-directory: soundpulse_dbt
+        run: |
+          dbt run --profiles-dir ~/.dbt \
+            --select stg_shap_importance stg_ml_predictions fct_mood_prediction_summary
+        continue-on-error: true
+
+      # ── 15. MODULE 13: Pinecone + MusicGen ───────────────────────────────────
+      - name: "M13a · Pinecone vector upsert"
+        run: python ingestion/pinecone_index.py
+
+      - name: "M13b · MusicGen audio generation"
+        run: python ingestion/music_generation.py
+        continue-on-error: true   # GPU not available — model runs on CPU, may be slow
+
+      # ── 16. MODULE 14: Export static data ────────────────────────────────────
+      - name: "M14 · Export static JSON to docs/"
+        run: python serving/export_static.py
+
+      # ── 17. Write pipeline run log ────────────────────────────────────────────
+      - name: Write pipeline run record
+        run: python orchestration/write_run_log.py "${{ job.status }}"
+
+      # ── 18. Commit and push docs/data/ → triggers GitHub Pages ───────────────
+      - name: Commit refreshed data
+        run: |
+          git config user.name  "soundpulse-bot"
+          git config user.email "bot@soundpulse"
+          git add docs/data/ docs/audio/
+          git diff --staged --quiet || git commit -m "chore: daily data refresh [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          git push
