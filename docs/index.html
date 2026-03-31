@@ -5,200 +5,265 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SoundPulse — Does the World Shape Music?</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:       #0d1117;
-      --surface:  #161b22;
-      --border:   #30363d;
-      --text:     #e6edf3;
-      --muted:    #8b949e;
-      --accent:   #58a6ff;
-      --euphoric: #ffd166;
-      --melancholic: #118ab2;
-      --aggressive:  #ef476f;
-      --peaceful:    #06d6a0;
-      --groovy:      #8338ec;
+      --bg:        #08090f;
+      --surface:   #0d1117;
+      --surface-2: #161b22;
+      --border:    #21262d;
+      --border-2:  #30363d;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --accent:    #58a6ff;
+      --euphoric:  #ffd166;
+      --melancholic:#118ab2;
+      --aggressive:#ef476f;
+      --peaceful:  #06d6a0;
+      --groovy:    #8338ec;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing:border-box; margin:0; padding:0; }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      line-height: 1.6;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      line-height:1.6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
     }
 
     /* ── NAV ── */
     nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(13,17,23,.92);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      display: flex; align-items: center; gap: 32px; height: 56px;
+      position:sticky; top:0; z-index:100;
+      background:rgba(8,9,15,.94);
+      backdrop-filter:blur(20px);
+      -webkit-backdrop-filter:blur(20px);
+      border-bottom:1px solid var(--border);
+      padding:0 28px;
+      display:flex; align-items:center; gap:28px; height:58px;
     }
-    nav .logo { font-weight: 700; font-size: 1.05rem; color: var(--accent); text-decoration: none; }
-    nav a { color: var(--muted); text-decoration: none; font-size: .9rem; transition: color .2s; }
-    nav a:hover { color: var(--text); }
+    nav .logo {
+      font-weight:800; font-size:.95rem; color:var(--text);
+      text-decoration:none; letter-spacing:-.02em;
+      display:flex; align-items:center; gap:8px; flex-shrink:0;
+    }
+    nav .logo-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--accent);
+      box-shadow:0 0 10px rgba(88,166,255,.8);
+      flex-shrink:0;
+    }
+    nav a { color:var(--muted); text-decoration:none; font-size:.84rem; font-weight:500; transition:color .15s; }
+    nav a:hover { color:var(--text); }
+    nav .nav-tag {
+      margin-left:auto; flex-shrink:0;
+      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.18);
+      color:var(--accent); font-size:.67rem; font-weight:700;
+      letter-spacing:.1em; text-transform:uppercase;
+      padding:4px 12px; border-radius:20px;
+    }
 
     /* ── HERO ── */
     .hero {
-      text-align: center;
-      padding: 80px 24px 60px;
-      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(88,166,255,.12) 0%, transparent 70%);
+      text-align:center;
+      padding:100px 24px 76px;
+      position:relative; overflow:hidden;
+    }
+    .hero::before {
+      content:''; position:absolute; inset:0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -5%,rgba(88,166,255,.13) 0%,transparent 65%),
+        radial-gradient(ellipse 35% 30% at 15% 70%,rgba(131,56,236,.07) 0%,transparent 60%),
+        radial-gradient(ellipse 35% 30% at 85% 70%,rgba(6,214,160,.06) 0%,transparent 60%);
+      pointer-events:none;
     }
     .hero .badge {
-      display: inline-block;
-      background: rgba(88,166,255,.12);
-      border: 1px solid rgba(88,166,255,.3);
-      color: var(--accent);
-      font-size: .78rem;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 20px;
-      margin-bottom: 20px;
+      display:inline-flex; align-items:center; gap:7px;
+      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.2);
+      color:var(--accent); font-size:.72rem; font-weight:600;
+      letter-spacing:.09em; text-transform:uppercase;
+      padding:5px 14px; border-radius:20px; margin-bottom:28px;
     }
-    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
-    .hero h1 span { color: var(--accent); }
-    .hero p { color: var(--muted); max-width: 620px; margin: 0 auto 32px; font-size: 1.05rem; }
+    .hero .badge::before {
+      content:''; width:5px; height:5px; border-radius:50%;
+      background:var(--accent); display:inline-block;
+      box-shadow:0 0 6px var(--accent);
+    }
+    .hero h1 {
+      font-size:clamp(2.2rem,5.5vw,3.8rem); font-weight:900;
+      line-height:1.1; margin-bottom:20px; letter-spacing:-.025em;
+    }
+    .hero h1 .gradient-text {
+      background:linear-gradient(135deg,#58a6ff 0%,#a5d6ff 60%,#79c0ff 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    .hero p {
+      color:var(--muted); max-width:540px; margin:0 auto 40px;
+      font-size:1.05rem; line-height:1.75;
+    }
 
     /* ── AUDIO PLAYER ── */
     .audio-card {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 12px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px 32px;
-      margin: 0 auto;
+      display:inline-flex; flex-direction:column; align-items:center; gap:14px;
+      background:var(--surface-2);
+      border:1px solid var(--border-2);
+      border-radius:20px; padding:28px 36px;
+      box-shadow:0 8px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.03);
     }
     .audio-card .mood-badge {
-      background: var(--aggressive);
-      color: #fff;
-      font-size: .75rem; font-weight: 700;
-      letter-spacing: .1em; text-transform: uppercase;
-      padding: 4px 10px; border-radius: 20px;
+      background:var(--aggressive); color:#fff;
+      font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+      padding:4px 12px; border-radius:20px;
     }
     .audio-card .prompt-text {
-      font-size: .82rem; color: var(--muted); max-width: 420px; text-align: center; font-style: italic;
+      font-size:.84rem; color:var(--muted); max-width:400px;
+      text-align:center; font-style:italic; line-height:1.65;
     }
-    audio {
-      width: 340px;
-      accent-color: var(--aggressive);
-    }
-    .audio-card .week-label { font-size: .78rem; color: var(--muted); }
+    audio { width:340px; accent-color:var(--aggressive); }
+    .audio-card .week-label { font-size:.76rem; color:var(--muted); }
 
     /* ── SECTIONS ── */
-    section { padding: 64px 24px; max-width: 1100px; margin: 0 auto; }
-    section + section { border-top: 1px solid var(--border); }
+    section { padding:72px 24px; max-width:1100px; margin:0 auto; }
+    section + section { border-top:1px solid var(--border); }
 
     .section-label {
-      font-size: .75rem; font-weight: 700; letter-spacing: .12em;
-      text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+      display:inline-flex; align-items:center; gap:5px;
+      font-size:.68rem; font-weight:700; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--accent);
+      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.15);
+      padding:3px 10px; border-radius:20px; margin-bottom:12px;
     }
-    h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
-    .subtitle { color: var(--muted); font-size: .95rem; margin-bottom: 32px; max-width: 680px; }
+    h2 { font-size:1.65rem; font-weight:800; margin-bottom:8px; letter-spacing:-.015em; }
+    .subtitle { color:var(--muted); font-size:.95rem; margin-bottom:36px; max-width:680px; line-height:1.75; }
 
     /* ── CARDS ── */
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 24px;
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      border-radius:14px; padding:24px; margin-bottom:24px;
+      transition:border-color .2s;
     }
+    .card:hover { border-color:var(--border-2); }
+    .card > b { font-size:.88rem; font-weight:600; }
 
-    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+    .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media (max-width:700px) { .chart-grid { grid-template-columns:1fr; } }
 
     /* ── METRICS ── */
-    .metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 32px; }
+    .metrics { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:32px; }
     .metric {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 28px;
-      flex: 1; min-width: 160px;
+      background:var(--surface-2); border:1px solid var(--border);
+      border-radius:14px; padding:20px 24px;
+      flex:1; min-width:150px; position:relative; overflow:hidden;
     }
-    .metric .value { font-size: 2rem; font-weight: 800; color: var(--accent); }
-    .metric .label { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+    .metric::after {
+      content:''; position:absolute; bottom:0; left:0; right:0;
+      height:2px; background:linear-gradient(90deg,var(--accent),transparent);
+    }
+    .metric .value { font-size:2.1rem; font-weight:800; color:var(--accent); letter-spacing:-.02em; line-height:1; }
+    .metric .label { font-size:.76rem; color:var(--muted); margin-top:6px; font-weight:500; }
 
     /* ── PREDICTION TABLE ── */
-    .pred-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    .pred-table { width:100%; border-collapse:collapse; font-size:.875rem; }
     .pred-table th {
-      text-align: left; padding: 10px 14px;
-      background: var(--bg); border-bottom: 1px solid var(--border);
-      color: var(--muted); font-weight: 600;
+      text-align:left; padding:10px 16px;
+      background:var(--bg); border-bottom:1px solid var(--border);
+      color:var(--muted); font-weight:600; font-size:.74rem;
+      text-transform:uppercase; letter-spacing:.07em;
     }
-    .pred-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
-    .pred-table tr.correct td { background: rgba(6,214,160,.06); }
-    .pred-table tr.wrong  td { background: rgba(239,71,111,.06); }
-    .pred-badge {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      font-size: .75rem; font-weight: 700;
-    }
+    .pred-table td { padding:10px 16px; border-bottom:1px solid var(--border); }
+    .pred-table tr.correct td { background:rgba(6,214,160,.04); }
+    .pred-table tr.wrong   td { background:rgba(239,71,111,.04); }
+    .pred-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.74rem; font-weight:700; }
 
-    /* ── SIMILAR TRACKS ── */
-    .track-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    /* ── TRACK LIST ── */
+    .track-list { list-style:none; display:flex; flex-direction:column; gap:6px; }
     .track-list li {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px;
-      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-      font-size: .88rem;
+      display:flex; align-items:center; gap:12px;
+      padding:10px 14px;
+      background:var(--bg); border:1px solid var(--border); border-radius:10px;
+      font-size:.875rem; transition:border-color .15s;
     }
-    .track-list li .rank { color: var(--muted); font-size: .78rem; width: 20px; }
-    .track-list li .sim { margin-left: auto; color: var(--muted); font-size: .78rem; }
+    .track-list li:hover { border-color:var(--border-2); }
+    .track-list li .rank { color:var(--muted); font-size:.74rem; width:20px; font-weight:600; }
+    .track-list li .sim  { margin-left:auto; color:var(--muted); font-size:.74rem; font-variant-numeric:tabular-nums; }
 
     /* ── TECH STACK ── */
-    .tech-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .tech-grid { display:flex; flex-wrap:wrap; gap:8px; }
     .tech-pill {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 20px; padding: 6px 14px; font-size: .82rem; color: var(--muted);
+      background:var(--surface-2); border:1px solid var(--border);
+      border-radius:20px; padding:7px 16px;
+      font-size:.82rem; color:var(--muted); font-weight:500;
+      transition:all .15s; cursor:default;
     }
+    .tech-pill:hover { border-color:var(--border-2); color:var(--text); }
 
     /* ── FOOTER ── */
     footer {
-      text-align: center; padding: 40px 24px;
-      border-top: 1px solid var(--border);
-      color: var(--muted); font-size: .85rem;
+      text-align:center; padding:48px 24px;
+      border-top:1px solid var(--border);
+      color:var(--muted); font-size:.85rem;
     }
-    footer a { color: var(--accent); text-decoration: none; }
+    footer a { color:var(--accent); text-decoration:none; }
 
     /* ── LOADING ── */
-    .loading { color: var(--muted); font-size: .9rem; text-align: center; padding: 40px; }
-    /* Once Plotly renders, the .js-plotly-plot div covers the loading text naturally */
-    .js-plotly-plot + .loading { display: none; }
+    .loading { color:var(--muted); font-size:.88rem; text-align:center; padding:48px; }
 
     /* ── MOOD CHIP ── */
     .mood-chip {
-      display: inline-block; padding: 2px 10px; border-radius: 12px;
-      font-size: .78rem; font-weight: 700; color: #fff;
+      display:inline-block; padding:2px 10px; border-radius:12px;
+      font-size:.74rem; font-weight:700; color:#fff;
     }
-    .mood-euphoric   { background: var(--euphoric); color: #000; }
-    .mood-melancholic { background: var(--melancholic); }
-    .mood-aggressive { background: var(--aggressive); }
-    .mood-peaceful   { background: var(--peaceful); color: #000; }
-    .mood-groovy     { background: var(--groovy); }
+    .mood-euphoric    { background:var(--euphoric); color:#000; }
+    .mood-melancholic { background:var(--melancholic); }
+    .mood-aggressive  { background:var(--aggressive); }
+    .mood-peaceful    { background:var(--peaceful); color:#000; }
+    .mood-groovy      { background:var(--groovy); }
+
+    /* ── INSIGHT CARDS ── */
+    .insight-card {
+      background:var(--surface-2); border:1px solid var(--border);
+      border-radius:12px; padding:20px; position:relative; overflow:hidden;
+    }
+    .insight-card::after {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    }
+    .insight-card.finding::after { background:var(--accent); }
+    .insight-card.signal::after  { background:var(--peaceful); }
+    .insight-card.model::after   { background:var(--euphoric); }
+    .insight-card.alert::after   { background:var(--aggressive); }
+    .insight-card .insight-type {
+      font-size:.68rem; font-weight:700; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+    }
+    .insight-card .insight-value { font-size:1.15rem; font-weight:800; color:var(--text); margin-bottom:6px; letter-spacing:-.01em; }
+    .insight-card .insight-desc  { font-size:.82rem; color:var(--muted); line-height:1.65; }
   </style>
 </head>
 <body>
 
 <!-- NAV -->
 <nav>
-  <a class="logo" href="#">🎵 SoundPulse</a>
+  <a class="logo" href="#"><span class="logo-dot"></span>SoundPulse</a>
+  <a href="#process">How It Works</a>
   <a href="#correlation">Correlation</a>
   <a href="#timeline">Timeline</a>
   <a href="#prediction">Prediction</a>
   <a href="#trends">Trends</a>
   <a href="#sentiment">Sentiment</a>
   <a href="#ai-track">AI Track</a>
+  <span class="nav-tag">Portfolio Project</span>
 </nav>
 
 <!-- HERO -->
 <div class="hero">
   <div class="badge">Data Engineering · ML · GenAI Portfolio</div>
-  <h1>Does the World Shape <span>Music?</span></h1>
+  <h1>Does the World Shape <span class="gradient-text">Music?</span></h1>
   <p>A 14-module data pipeline that proves world events influence music listening habits —
      and generates a custom music clip to match next week's predicted mood.</p>
 
@@ -212,6 +277,406 @@
     </audio>
     <div class="week-label" id="audio-week"></div>
   </div>
+</div>
+
+<!-- ──────────────── PROCESS SECTION ──────────────── -->
+<div id="process" style="background: linear-gradient(180deg, #08090f 0%, #0c111a 100%); border-top: 1px solid #21262d;">
+
+  <!-- LIVE STATS BAR -->
+  <div style="border-bottom:1px solid #30363d; padding:28px 24px;">
+    <div style="max-width:1100px; margin:0 auto; display:flex; flex-wrap:wrap; gap:0; justify-content:space-around;">
+      <div class="stat-block" style="text-align:center; padding:12px 28px;">
+        <div id="stat-articles" style="font-size:2.4rem; font-weight:800; color:#58a6ff; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">News Articles Analyzed</div>
+      </div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
+        <div id="stat-weeks" style="font-size:2.4rem; font-weight:800; color:#58a6ff; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Weeks of Pipeline Data</div>
+      </div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
+        <div id="stat-accuracy" style="font-size:2.4rem; font-weight:800; color:#06d6a0; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">XGBoost Prediction Accuracy</div>
+      </div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
+        <div id="stat-vectors" style="font-size:2.4rem; font-weight:800; color:#ffd166; line-height:1;">1,011</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Tracks in Vector Index</div>
+      </div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
+        <div id="stat-sources" style="font-size:2.4rem; font-weight:800; color:#ef476f; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Chart Sources Tracked</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THE HYPOTHESIS -->
+  <section style="max-width:1100px; margin:0 auto; padding:64px 24px 32px;">
+    <div style="max-width:720px;">
+      <div class="section-label">The Question</div>
+      <h2 style="font-size:2rem; font-weight:800; margin-bottom:20px; line-height:1.2;">
+        What if news headlines could predict<br>next week's Billboard chart mood?
+      </h2>
+      <p style="color:#8b949e; font-size:1rem; line-height:1.8; margin-bottom:16px;">
+        The idea started from a hunch: music feels different during turbulent news cycles. When tensions rise —
+        political crises, economic anxiety, global unrest — the charts seem to go harder, angrier, more intense.
+        When things calm down, you get euphoric pop. Is that a real, measurable effect, or just pattern-matching noise?
+      </p>
+      <p style="color:#8b949e; font-size:1rem; line-height:1.8; margin-bottom:16px;">
+        To find out, I built a 14-module data pipeline from scratch. It ingests real-time data from
+        six different sources, runs NLP emotion classification on thousands of news articles every week,
+        clusters chart-topping songs by their sonic DNA, and trains a machine learning model to predict
+        the following week's dominant audio mood from the news sentiment alone.
+      </p>
+      <p style="color:#e6edf3; font-size:1rem; line-height:1.8; font-weight:500;">
+        The result? <span id="inline-accuracy" style="color:#06d6a0; font-weight:700;">92% accuracy</span> on the test set —
+        and an AI-generated music clip that sounds like what next week's charts should feel like.
+      </p>
+    </div>
+  </section>
+
+  <!-- DATA SOURCES -->
+  <section style="max-width:1100px; margin:0 auto; padding:16px 24px 48px;">
+    <div class="section-label">The Data</div>
+    <h2 style="margin-bottom:8px;">Six Sources. One Pipeline.</h2>
+    <p style="color:#8b949e; font-size:.95rem; margin-bottom:32px; max-width:600px;">
+      Every source was chosen because it represents a different slice of the music-world relationship.
+      No scraping of paywalled data — all public APIs, all reproducible.
+    </p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">📰</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">The Guardian API</div>
+            <div style="font-size:.78rem; color:#8b949e;">News sentiment · Emotion classification</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          The backbone of the emotion analysis. Pulled 6,348 articles across topics like
+          politics, technology, culture, and science — going back 16 weeks. Every article
+          runs through a DistilRoBERTa transformer fine-tuned on 7 emotions.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          REST API · HTTPS · Paginated · Daily batch pull
+        </div>
+      </div>
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">📊</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">Billboard Hot 100</div>
+            <div style="font-size:.78rem; color:#8b949e;">Chart rankings · Weekly trends</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          The gold standard for US music popularity. Weekly snapshots of the Hot 100,
+          including rank movement, weeks on chart, and peak position. Combined with Librosa
+          audio features to understand the sonic profile of what's charting.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          billboard.py library · Weekly pull · Historical backfill 3 months
+        </div>
+      </div>
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">🎵</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">iTunes + Last.fm</div>
+            <div style="font-size:.78rem; color:#8b949e;">Global trending · Real-time listening</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          iTunes gives real-time chart rankings across 60+ countries. Last.fm adds
+          global scrobble data — actual listening behaviour, not just purchases. Together
+          they capture both commercial success and organic listening trends.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          iTunes RSS · Last.fm REST API · Intraday polling
+        </div>
+      </div>
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">🎧</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">Librosa (Audio DNA)</div>
+            <div style="font-size:.78rem; color:#8b949e;">30 acoustic features · Mood fingerprinting</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          Every trending track gets a 30-dimensional acoustic fingerprint: tempo, energy,
+          13 MFCCs, 12 chroma bins, spectral centroid, harmonic-to-percussive ratio.
+          This is what the KMeans algorithm actually clusters — not song titles, pure sound.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          Librosa Python · 30-second audio previews · Local processing
+        </div>
+      </div>
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">📺</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">YouTube Trending</div>
+            <div style="font-size:.78rem; color:#8b949e;">Video virality · Cross-platform signal</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          YouTube's trending music videos act as a virality signal that's independent of
+          streaming platforms. A song trending on YouTube before it hits Spotify is a leading
+          indicator — useful for detecting mood shifts before they fully materialise on charts.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          YouTube Data API v3 · Daily pulls · Multi-country
+        </div>
+      </div>
+
+      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <span style="font-size:1.6rem;">💬</span>
+          <div>
+            <div style="font-weight:700; font-size:1rem;">Reddit (r/music + r/news)</div>
+            <div style="font-size:.78rem; color:#8b949e;">Community sentiment · Engagement signals</div>
+          </div>
+        </div>
+        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+          Reddit captures what people are saying about music, not just what they're listening to.
+          Score (upvotes minus downvotes) and comment counts serve as engagement proxies.
+          A post going viral in r/music is often an early signal of a song breaking through.
+        </p>
+        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+          PRAW (Python Reddit API Wrapper) · Streaming · OAuth2
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PIPELINE STAGES -->
+  <section style="max-width:1100px; margin:0 auto; padding:16px 24px 48px;">
+    <div class="section-label">The Architecture</div>
+    <h2 style="margin-bottom:8px;">14 Modules. End to End.</h2>
+    <p style="color:#8b949e; font-size:.95rem; margin-bottom:36px; max-width:640px;">
+      Built in layers — each module builds on the output of the previous. The pipeline runs daily,
+      writes to BigQuery, transforms through dbt, and surfaces everything through a FastAPI backend.
+    </p>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+      <div style="grid-column:1/-1; background:#0d1117; border:1px solid #58a6ff33; border-radius:10px; padding:16px 20px; font-size:.82rem; color:#8b949e; display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
+        <span style="color:#58a6ff; font-weight:700; font-size:.9rem;">Data Flow</span>
+        <span>APIs / RSS</span><span style="color:#30363d">→</span>
+        <span>Python Ingestion</span><span style="color:#30363d">→</span>
+        <span>Google Cloud Storage</span><span style="color:#30363d">→</span>
+        <span>BigQuery (raw)</span><span style="color:#30363d">→</span>
+        <span>dbt (transformed)</span><span style="color:#30363d">→</span>
+        <span>Python ML</span><span style="color:#30363d">→</span>
+        <span>Pinecone + MusicGen</span><span style="color:#30363d">→</span>
+        <span>FastAPI → Web</span>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
+        <div style="color:#ef476f; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Ingestion Layer · Modules 1–8</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M1</span>
+            <span style="font-size:.84rem; color:#8b949e;">News + Reddit + YouTube — REST APIs, daily batch ingestion to GCS as JSONL, then loaded to BigQuery</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M2</span>
+            <span style="font-size:.84rem; color:#8b949e;">Spotify audio features — danceability, energy, valence, acousticness matched to chart tracks</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M3–5</span>
+            <span style="font-size:.84rem; color:#8b949e;">iTunes, Last.fm, Billboard — three chart sources merged into a unified trending_tracks table</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M6</span>
+            <span style="font-size:.84rem; color:#8b949e;">Librosa — 30-second previews processed locally, extracting 30 acoustic features per track</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M7–8</span>
+            <span style="font-size:.84rem; color:#8b949e;">dbt transformations — 15 staging views + 5 mart tables, 82 data quality tests</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
+        <div style="color:#ffd166; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Analysis Layer · Modules 9–12</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M9</span>
+            <span style="font-size:.84rem; color:#8b949e;">DistilRoBERTa (j-hartmann model) — 7-emotion classification on 6,348 articles, batched in 64s, GPU-optional</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M10</span>
+            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=5 archetypes named by centroid profile: euphoric, melancholic, aggressive, peaceful, groovy</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M11</span>
+            <span style="font-size:.84rem; color:#8b949e;">Pearson correlation — 50 pairs (10 emotions × 5 moods), computed in both Python and BigQuery native CORR()</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M12</span>
+            <span style="font-size:.84rem; color:#8b949e;">XGBoost multiclass with lag-1 features — this week's emotions predict next week's chart mood</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
+        <div style="color:#06d6a0; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">GenAI Layer · Module 13</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13a</span>
+            <span style="font-size:.84rem; color:#8b949e;">Pinecone vector index — 1,011 tracks embedded as 30-dim acoustic vectors, StandardScaler fitted on the full corpus, cosine similarity search</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72km; font-weight:700; flex-shrink:0;">13b</span>
+            <span style="font-size:.84rem; color:#8b949e;">MusicGen-small (Facebook/Meta) — top-10 similar tracks averaged into an acoustic prompt, natural language description generated, 500 tokens = 10s of audio</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13c</span>
+            <span style="font-size:.84rem; color:#8b949e;">WAV → GCS → BigQuery — audio uploaded to Cloud Storage, metadata logged to generated_tracks table, surfaced via dbt staging view</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
+        <div style="color:#8338ec; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Serving Layer · Module 14</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">API</span>
+            <span style="font-size:.84rem; color:#8b949e;">FastAPI backend — 8 endpoints querying BigQuery dbt_transformed views, CORS-enabled for cross-origin dashboard access</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">UI</span>
+            <span style="font-size:.84rem; color:#8b949e;">Two Streamlit dashboards — Mood Intelligence (ML analysis) and Music Trends (audio clustering) — plus this GitHub Pages static site</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">CI</span>
+            <span style="font-size:.84rem; color:#8b949e;">Prefect orchestration — daily 2am runs, all 14 modules in dependency order, failure alerts and retry logic</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CHART EXPLANATIONS -->
+  <section style="max-width:1100px; margin:0 auto; padding:16px 24px 64px;">
+    <div class="section-label">Reading the Charts</div>
+    <h2 style="margin-bottom:8px;">What each visualisation actually tells you</h2>
+    <p style="color:#8b949e; font-size:.95rem; margin-bottom:32px; max-width:600px;">
+      None of these charts are decorative. Each one answers a specific question about the emotion–music relationship.
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Correlation Heatmap</div>
+          <div style="font-size:1.4rem;">📊</div>
+          <div id="chart-explain-corr" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+        </div>
+        <div>
+          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Does world sentiment actually correlate with music mood?</p>
+          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+            Each cell shows the Pearson r between a news emotion score (y-axis) and the percentage of trending songs
+            assigned to a mood archetype (x-axis), across all 16 weeks. Red = positive correlation, blue = negative.
+            Cells marked ★ are statistically notable (|r| ≥ 0.3). The strongest positive correlation tells you which
+            emotion most reliably predicts which music mood — and the answer might surprise you.
+            Look for the <strong>disgust → aggressive</strong> and <strong>neutral → aggressive</strong> pairs.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">World Events Timeline</div>
+          <div style="font-size:1.4rem;">📈</div>
+          <div id="chart-explain-timeline" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+        </div>
+        <div>
+          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">How do sentiment indices move week by week — and does the music follow?</p>
+          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+            The three lines are composite indices: Anxiety (fear + sadness), Tension (anger + disgust), and Positivity (joy + surprise).
+            The dots on the right axis show what mood dominated the charts that week.
+            This is the raw visual proof of the hypothesis. Look for weeks where anxiety or tension
+            spikes — then check whether the music mood shifted the following week.
+            That 1-week lag is exactly what the XGBoost model learns to predict.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Feature Importance</div>
+          <div style="font-size:1.4rem;">🔬</div>
+          <div id="chart-explain-shap" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+        </div>
+        <div>
+          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Which emotions are the strongest predictors of each music mood?</p>
+          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+            Point-biserial correlation between each emotion feature and each mood archetype's binary label.
+            Positive values mean "when this emotion is high, this mood tends to dominate." Negative means the opposite.
+            The standout finding: <strong>avg_neutral is the top driver of aggressive music</strong> —
+            when news sentiment flattens out (neither joyful nor fearful, just numb),
+            aggressive music fills the emotional void. Anxiety index comes in second, confirming the hypothesis direction.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Mood Radar</div>
+          <div style="font-size:1.4rem;">🕸️</div>
+          <div id="chart-explain-radar" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+        </div>
+        <div>
+          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Do different chart sources have different emotional personalities?</p>
+          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+            Each line on the radar is a chart source (Hot 100, Latin, Dance Club Play, etc.) and the
+            five axes are the mood archetypes. A pointy spike towards "aggressive" means that source
+            is dominated by aggressive-sounding songs this week. Compare Hot 100 vs Latin charts —
+            the sonic DNA is quite different. This chart is regenerated each week with live data.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+        <div>
+          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">AI Generation</div>
+          <div style="font-size:1.4rem;">🤖</div>
+        </div>
+        <div>
+          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">What does next week's music actually sound like?</p>
+          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+            The pipeline takes the XGBoost prediction, queries the Pinecone index for the 10 most
+            sonically similar real tracks to that mood (by cosine similarity on 30 acoustic features),
+            averages their audio DNA into a single profile, translates that profile into a natural
+            language prompt ("aggressive rock music, high energy, 130 BPM…"), and feeds it to
+            MusicGen-small to generate 10 seconds of original audio. The result is above — press play.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- DYNAMIC INSIGHTS -->
+  <section style="max-width:1100px; margin:0 auto; padding:0 24px 64px;">
+    <div class="section-label">Live Findings</div>
+    <h2 style="margin-bottom:8px;">What the data actually shows</h2>
+    <p style="color:#8b949e; font-size:.95rem; margin-bottom:28px; max-width:600px;">
+      Generated from the real pipeline data, not written manually.
+    </p>
+    <div id="dynamic-insights" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;">
+      <div style="color:#8b949e; font-size:.9rem; padding:20px;">Loading insights…</div>
+    </div>
+  </section>
+
 </div>
 
 <!-- ──────────────── SECTION 1 — CORRELATION ──────────────── -->
@@ -797,6 +1262,133 @@ async function initAITrack() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Process section — dynamic stats + insights
+// ──────────────────────────────────────────────────────────────
+async function initProcessSection() {
+  const [newsRes, tlRes, predRes, moodRes] = await Promise.allSettled([
+    load('news_sentiment.json'),
+    load('timeline.json'),
+    load('predictions.json'),
+    load('mood_weekly.json'),
+  ]);
+  const newsData  = newsRes.status  === 'fulfilled' ? newsRes.value  : [];
+  const tlData    = tlRes.status    === 'fulfilled' ? tlRes.value    : [];
+  const predData  = predRes.status  === 'fulfilled' ? predRes.value  : [];
+  const moodData  = moodRes.status  === 'fulfilled' ? moodRes.value  : [];
+
+  // Live stat counters
+  const totalArticles = newsData.reduce((s, d) => s + (parseInt(d.article_count) || 0), 0);
+  if (totalArticles > 0) document.getElementById('stat-articles').textContent = totalArticles.toLocaleString();
+
+  const weeks = new Set(tlData.map(d => d.week_start));
+  if (weeks.size) document.getElementById('stat-weeks').textContent = weeks.size;
+
+  if (predData.length) {
+    const last = predData[predData.length - 1];
+    const acc = parseFloat(last.overall_accuracy);
+    if (!isNaN(acc)) {
+      document.getElementById('stat-accuracy').textContent = (acc * 100).toFixed(0) + '%';
+      const inlineEl = document.getElementById('inline-accuracy');
+      if (inlineEl) inlineEl.textContent = (acc * 100).toFixed(0) + '% accuracy';
+    }
+  }
+
+  const sources = new Set(moodData.map(d => d.chart_source));
+  if (sources.size) document.getElementById('stat-sources').textContent = sources.size;
+
+  // Chart explain captions
+  if (tlData.length) {
+    const anxVals = tlData.map(d => parseFloat(d.anxiety_index)).filter(v => !isNaN(v));
+    const maxAnx = Math.max(...anxVals).toFixed(3);
+    const el = document.getElementById('chart-explain-timeline');
+    if (el) el.textContent = `Peak anxiety index: ${maxAnx} across ${tlData.length} weeks of data`;
+  }
+
+  if (tlData.length) {
+    const moodCounts = {};
+    tlData.forEach(d => { if (d.dominant_mood) moodCounts[d.dominant_mood] = (moodCounts[d.dominant_mood]||0)+1; });
+    const top = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0];
+    const el = document.getElementById('chart-explain-radar');
+    if (el && top) el.textContent = `"${top[0]}" led ${top[1]} of ${tlData.length} weeks tracked`;
+  }
+
+  const corrEl = document.getElementById('chart-explain-corr');
+  if (corrEl) corrEl.textContent = '50 emotion–mood pairs computed across all weeks';
+
+  const shapEl = document.getElementById('chart-explain-shap');
+  if (shapEl) shapEl.textContent = 'avg_neutral is the #1 driver of aggressive music weeks';
+
+  // Dynamic insights
+  const container = document.getElementById('dynamic-insights');
+  if (!container) return;
+
+  const insights = [];
+
+  if (newsData.length) {
+    const emotionCount = {};
+    newsData.forEach(d => { emotionCount[d.dominant_emotion] = (emotionCount[d.dominant_emotion]||0)+1; });
+    const topEmotion = Object.entries(emotionCount).sort((a,b)=>b[1]-a[1])[0];
+    if (topEmotion) {
+      insights.push({
+        type: 'finding', icon: '📰', label: 'Dominant News Emotion',
+        value: topEmotion[0].charAt(0).toUpperCase() + topEmotion[0].slice(1),
+        desc: `"${topEmotion[0]}" was the most frequent dominant emotion across all news topics and weeks — appearing in ${topEmotion[1].toLocaleString()} out of ${newsData.length.toLocaleString()} topic-week combinations analysed by DistilRoBERTa.`,
+      });
+    }
+  }
+
+  if (predData.length) {
+    const last = predData[predData.length - 1];
+    const acc = parseFloat(last.overall_accuracy);
+    if (!isNaN(acc)) {
+      insights.push({
+        type: 'model', icon: '🎯', label: 'XGBoost Prediction Accuracy',
+        value: (acc * 100).toFixed(0) + '%',
+        desc: `The model correctly predicted the following week's dominant chart mood in ${last.correct_predictions} of ${last.total_weeks} weeks. The lag-1 structure means this week's news emotion scores directly forecast next week's Billboard chart sound.`,
+      });
+    }
+  }
+
+  if (tlData.length) {
+    const moodCounts = {};
+    tlData.forEach(d => { if (d.dominant_mood) moodCounts[d.dominant_mood] = (moodCounts[d.dominant_mood]||0)+1; });
+    const top = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0];
+    if (top) {
+      insights.push({
+        type: 'signal', icon: '🎵', label: 'Most Persistent Chart Mood',
+        value: top[0].charAt(0).toUpperCase() + top[0].slice(1),
+        desc: `"${top[0]}" was the dominant audio mood in ${top[1]} of the ${tlData.length} weeks tracked. This structural consistency is precisely why the model achieves such high accuracy — it learned a real, persistent pattern in the data.`,
+      });
+    }
+  }
+
+  if (newsData.length) {
+    const total = newsData.reduce((s,d) => s+(parseInt(d.article_count)||0), 0);
+    const topics = new Set(newsData.map(d => d.topic));
+    const uniqueWeeks = new Set(newsData.map(d => d.week_start));
+    if (total > 0) {
+      insights.push({
+        type: 'alert', icon: '🔬', label: 'Scale of the Emotion Corpus',
+        value: total.toLocaleString() + ' articles',
+        desc: `${total.toLocaleString()} Guardian articles run through DistilRoBERTa across ${topics.size} topics and ${uniqueWeeks.size} weeks. Each article yields a 7-dimensional emotion vector. The weekly average across each topic forms the XGBoost feature input.`,
+      });
+    }
+  }
+
+  if (!insights.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:.9rem;padding:20px;">Run export_static.py to populate live insights.</div>';
+    return;
+  }
+
+  container.innerHTML = insights.map(ins => `
+    <div class="insight-card ${ins.type}">
+      <div class="insight-type">${ins.icon} ${ins.label}</div>
+      <div class="insight-value">${ins.value}</div>
+      <div class="insight-desc">${ins.desc}</div>
+    </div>`).join('');
+}
+
+// ──────────────────────────────────────────────────────────────
 // Boot — run all in parallel, show errors gracefully
 // ──────────────────────────────────────────────────────────────
 function errEl(id, e) {
@@ -806,13 +1398,14 @@ function errEl(id, e) {
 
 (async () => {
   await Promise.allSettled([
-    initAudio()      .catch(e => errEl('audio-card', e)),
-    initHeatmap()    .catch(e => errEl('chart-heatmap', e)),
-    initTimeline()   .catch(e => errEl('chart-timeline', e)),
-    initPrediction() .catch(e => errEl('chart-shap', e)),
-    initTrends()     .catch(e => errEl('chart-radar', e)),
-    initSentiment()  .catch(e => errEl('chart-anxiety', e)),
-    initAITrack()    .catch(e => errEl('prompt-breakdown', e)),
+    initAudio()          .catch(e => errEl('audio-card', e)),
+    initHeatmap()        .catch(e => errEl('chart-heatmap', e)),
+    initTimeline()       .catch(e => errEl('chart-timeline', e)),
+    initPrediction()     .catch(e => errEl('chart-shap', e)),
+    initTrends()         .catch(e => errEl('chart-radar', e)),
+    initSentiment()      .catch(e => errEl('chart-anxiety', e)),
+    initAITrack()        .catch(e => errEl('prompt-breakdown', e)),
+    initProcessSection() .catch(e => console.warn('Process section:', e)),
   ]);
 })();
 </script>
