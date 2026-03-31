@@ -36,3 +36,5 @@ sources:
         description: XGBoost lag-1 predictions of next week's dominant audio mood archetype. Populated by ingestion/ml_predictions.py.
       - name: shap_importance
         description: SHAP feature importance values per emotion feature x mood archetype, ranked. Populated by ingestion/ml_predictions.py.
+      - name: generated_tracks
+        description: MusicGen audio generation log. One row per generation run. Populated by ingestion/music_generation.py (Module 13).

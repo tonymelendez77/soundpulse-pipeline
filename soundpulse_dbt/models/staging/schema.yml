@@ -197,3 +197,24 @@ models:
       - name: importance_rank
         tests:
           - not_null
+
+  - name: stg_generated_tracks
+    description: MusicGen generation log — one row per run with GCS audio path, prompt, and similar tracks
+    columns:
+      - name: generation_id
+        description: UUID4 unique identifier for this generation run
+        tests:
+          - unique
+          - not_null
+      - name: week_start
+        tests:
+          - not_null
+      - name: mood_archetype
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
+      - name: audio_gcs_path
+        tests:
+          - not_null
