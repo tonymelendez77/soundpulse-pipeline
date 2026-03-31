@@ -8,6 +8,7 @@ Schedule: 0 2 * * *  (daily at 02:00 UTC)
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -190,20 +191,8 @@ def _write_run_log(run_record: dict) -> None:
     runs_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
 
-@task(name="M14 · Git commit + push docs/data/", retries=1, retry_delay_seconds=30)
-def git_push_docs():
-    logger = get_run_logger()
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    cmds = [
-        ["git", "add", "docs/data/", "docs/audio/"],
-        ["git", "commit", "--allow-empty", "-m", f"chore: daily data refresh [{now}]"],
-        ["git", "push"],
-    ]
-    for cmd in cmds:
-        result = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
-        logger.info(result.stdout)
-        if result.returncode not in (0, 1):   # 1 = nothing to commit, ok
-            logger.warning(result.stderr)
+# NOTE: git commit + push to GitHub Pages is handled by GitHub Actions
+# after this Prefect flow exits. No git task needed here.
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -311,7 +300,23 @@ def soundpulse_daily():
         "tasks_total": tasks_total,
     })
 
-    git_push_docs()
+    # Add Prefect Cloud run URL if available (injected by Prefect at runtime)
+    prefect_ui_url = os.getenv("PREFECT_UI_URL", "")
+
+    # Re-write run log with final state + Prefect URL
+    _write_run_log({
+        "run_id": run_id,
+        "started_at": started_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "status": status,
+        "duration_seconds": duration,
+        "modules_completed": modules_ok,
+        "tasks_ok": tasks_ok,
+        "tasks_total": tasks_total,
+        "run_url": prefect_ui_url or f"https://app.prefect.cloud/",
+    })
+
+    # NOTE: git commit + push is handled by GitHub Actions after this script exits
     logger.info(f"Pipeline {status} — {duration}s  ({tasks_ok}/{tasks_total} tasks)")
 
 

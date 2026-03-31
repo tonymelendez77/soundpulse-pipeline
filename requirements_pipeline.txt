@@ -1,54 +1,44 @@
-# GitHub Actions pipeline — all modules
+# GitHub Actions pipeline — packages verified against actual script imports
+
 # Core
 requests==2.32.5
-pandas==2.2.3
-numpy==2.4.3
+pandas
+numpy
 python-dotenv
+loguru
+beautifulsoup4
 
 # Google Cloud
 google-cloud-bigquery==3.40.1
 google-cloud-bigquery-storage
 google-cloud-storage==3.1.1
-db-dtypes==1.5.0
+db-dtypes
 pyarrow
+google-auth
 
 # dbt
 dbt-bigquery==1.11.1
 
-# News / Reddit / YouTube
-praw
-google-api-python-client
-pygooglenews
-
-# Music charts
-billboard.py
-pylast
-
 # Audio features
 librosa==0.11.0
+pydub
 soundfile
 audioread
 
-# Spotify
-spotipy
-
-# ML
-scikit-learn==1.8.0
+# ML / NLP
+scikit-learn
 xgboost==3.2.0
 shap==0.51.0
-
-# NLP
+scipy
+torch
 transformers==5.4.0
-torch==2.11.0
-scipy==1.17.1
 
-# Vector DB
+# Vector DB + GenAI
 pinecone-client==3.2.2
 
-# MusicGen (heavy — comment out if GH Actions times out)
-audiocraft
+# Orchestration (Prefect Cloud)
+prefect==3.6.23
 
-# Serving / export
+# FastAPI (export_static uses requests; api.py runs separately on Render)
 fastapi==0.135.2
 uvicorn==0.42.0
-loguru==0.7.3
