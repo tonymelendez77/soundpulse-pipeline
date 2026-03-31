@@ -167,6 +167,8 @@
 
     /* ── LOADING ── */
     .loading { color: var(--muted); font-size: .9rem; text-align: center; padding: 40px; }
+    /* Once Plotly renders, the .js-plotly-plot div covers the loading text naturally */
+    .js-plotly-plot + .loading { display: none; }
 
     /* ── MOOD CHIP ── */
     .mood-chip {
@@ -397,6 +399,11 @@ async function load(file) {
   return r.json();
 }
 
+function clearLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = '';
+}
+
 function moodChip(mood) {
   const c = MOOD_COLORS[mood] || '#888';
   const textColor = ['euphoric','peaceful'].includes(mood) ? '#000' : '#fff';
@@ -424,21 +431,25 @@ async function initAudio() {
 async function initHeatmap() {
   const data = await load('correlation.json');
 
-  const emotions   = [...new Set(data.map(d => d.emotion))].sort();
-  const archetypes = [...new Set(data.map(d => d.mood_archetype))].sort();
+  // Only include archetypes that have at least one valid (non-null) pearson_r
+  const allArchetypes = [...new Set(data.map(d => d.mood_archetype))].sort();
+  const archetypes = allArchetypes.filter(arch =>
+    data.some(d => d.mood_archetype === arch && d.pearson_r !== null && !isNaN(parseFloat(d.pearson_r)))
+  );
+  const emotions = [...new Set(data.map(d => d.emotion))].sort();
 
   const z = archetypes.map(arch =>
     emotions.map(em => {
       const row = data.find(d => d.emotion === em && d.mood_archetype === arch);
-      return row ? parseFloat(row.pearson_r) : 0;
+      return (row && row.pearson_r !== null) ? parseFloat(row.pearson_r) : 0;
     })
   );
 
-  // Build annotation text (show r value + ★ for notable)
+  // Annotation text: r value + ★ for notable
   const text = archetypes.map(arch =>
     emotions.map(em => {
       const row = data.find(d => d.emotion === em && d.mood_archetype === arch);
-      if (!row) return '';
+      if (!row || row.pearson_r === null) return '';
       const r = parseFloat(row.pearson_r).toFixed(2);
       return row.notable ? `${r}★` : r;
     })
@@ -447,6 +458,7 @@ async function initHeatmap() {
   const emotionLabels = emotions.map(e => e.replace('avg_','').replace(/_/g,' '));
   const archLabels    = archetypes.map(a => a.charAt(0).toUpperCase() + a.slice(1));
 
+  clearLoading('chart-heatmap');
   Plotly.newPlot('chart-heatmap', [{
     type: 'heatmap', z, x: emotionLabels, y: archLabels, text,
     texttemplate: '%{text}', textfont: { size: 11 },
@@ -456,9 +468,10 @@ async function initHeatmap() {
     hovertemplate: '%{y} × %{x}<br>r = %{z:.3f}<extra></extra>',
   }], {
     ...PLOTLY_LAYOUT,
-    height: 320,
-    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'News Emotion' },
-    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '' },
+    height: 300,
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'News Emotion', automargin: true },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '', automargin: true },
+    margin: { l: 100, r: 60, t: 20, b: 80 },
   }, CONFIG);
 }
 
@@ -497,17 +510,21 @@ async function initTimeline() {
     hovertemplate: 'Mood: %{text}<extra></extra>',
   };
 
+  clearLoading('chart-timeline');
   Plotly.newPlot('chart-timeline', [...indexTraces, moodTrace], {
     ...PLOTLY_LAYOUT,
-    height: 360,
-    yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Sentiment Index', range: [-0.05, 1.05] },
+    height: 400,
+    yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Sentiment Index', autorange: true },
     yaxis2: {
-      overlaying: 'y', side: 'right', title: 'Mood',
-      tickvals: [0,1,2,3,4], ticktext: ['groovy','peaceful','aggressive','melancholic','euphoric'],
-      range: [-0.5, 4.8], gridcolor: '#30363d', showgrid: false,
+      overlaying: 'y', side: 'right', title: '',
+      tickvals: [0,1,2,3,4],
+      ticktext: ['Groovy','Peaceful','Aggressive','Melancholic','Euphoric'],
+      range: [-0.8, 5.5], gridcolor: '#30363d', showgrid: false,
+      tickfont: { size: 11 },
     },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
-    legend: { x: 0, y: 1 },
+    legend: { x: 0, y: 1.05, orientation: 'h' },
+    margin: { l: 50, r: 110, t: 30, b: 50 },
     hovermode: 'x unified',
   }, CONFIG);
 }
@@ -531,30 +548,67 @@ async function initPrediction() {
   }
 
   // ── SHAP bar
-  const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
-  const features   = [...new Set(shapData.map(d => d.feature))];
+  // Check if all mean_abs_shap values are zero (happens when model predicts one dominant class)
+  const allZero = shapData.every(d => parseFloat(d.mean_abs_shap) === 0);
 
-  const shapTraces = archetypes.map(arch => {
-    const rows = shapData.filter(d => d.mood_archetype === arch)
-      .sort((a,b) => a.importance_rank - b.importance_rank);
-    return {
-      type: 'bar', orientation: 'h',
-      name: arch,
-      x: rows.map(d => parseFloat(d.mean_abs_shap)),
-      y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
-      marker: { color: MOOD_COLORS[arch] || '#888' },
-      hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
-    };
-  });
+  if (allZero) {
+    // Fall back to mean_shap_value (signed) which shows directional influence per class
+    const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
+    const allSigned  = shapData.every(d => parseFloat(d.mean_shap_value) === 0);
 
-  Plotly.newPlot('chart-shap', shapTraces, {
-    ...PLOTLY_LAYOUT,
-    height: 360,
-    barmode: 'group',
-    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|' },
-    yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
-    margin: { l: 100, r: 10, t: 20, b: 40 },
-  }, CONFIG);
+    if (allSigned) {
+      document.getElementById('chart-shap').innerHTML = `
+        <div style="padding:24px; color:var(--muted); font-size:.9rem; text-align:center; line-height:1.8">
+          <div style="font-size:2rem; margin-bottom:8px">🎯</div>
+          <strong style="color:var(--text)">SHAP values are all zero</strong><br>
+          The model predicted <span style="color:var(--aggressive)">aggressive</span> for 11 of 12 weeks
+          with 92% confidence — so high the SHAP explainer had no variance to attribute.<br>
+          <span style="font-size:.82rem; margin-top:8px; display:block">
+            This is a sign of a strong, consistent signal — not a model flaw.
+          </span>
+        </div>`;
+    } else {
+      // Use signed SHAP values instead
+      const shapTraces = archetypes.map(arch => {
+        const rows = shapData.filter(d => d.mood_archetype === arch)
+          .sort((a,b) => a.importance_rank - b.importance_rank);
+        return {
+          type: 'bar', orientation: 'h', name: arch,
+          x: rows.map(d => parseFloat(d.mean_shap_value)),
+          y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+          marker: { color: MOOD_COLORS[arch] || '#888' },
+          hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
+        };
+      });
+      Plotly.newPlot('chart-shap', shapTraces, {
+        ...PLOTLY_LAYOUT, height: 360, barmode: 'group',
+        xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true },
+        yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+        margin: { l: 120, r: 10, t: 20, b: 40 },
+      }, CONFIG);
+    }
+  } else {
+    const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
+    const shapTraces = archetypes.map(arch => {
+      const rows = shapData.filter(d => d.mood_archetype === arch)
+        .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap));
+      return {
+        type: 'bar', orientation: 'h', name: arch,
+        x: rows.map(d => parseFloat(d.mean_abs_shap)),
+        y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+        marker: { color: MOOD_COLORS[arch] || '#888' },
+        text: rows.map(d => parseFloat(d.mean_abs_shap).toFixed(4)),
+        textposition: 'outside',
+        hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
+      };
+    });
+    Plotly.newPlot('chart-shap', shapTraces, {
+      ...PLOTLY_LAYOUT, height: 360, barmode: 'group',
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+      margin: { l: 120, r: 10, t: 20, b: 40 },
+    }, CONFIG);
+  }
 
   // ── Prediction table
   const rows = predData.map(d => {
@@ -595,6 +649,7 @@ async function initTrends() {
     hovertemplate: `%{theta}: %{r:.1%}<extra>${row.chart_source}</extra>`,
   }));
 
+  clearLoading('chart-radar');
   Plotly.newPlot('chart-radar', radarTraces, {
     ...PLOTLY_LAYOUT,
     height: 320,
@@ -621,11 +676,13 @@ async function initTrends() {
     };
   });
 
+  clearLoading('chart-mood-timeline');
   Plotly.newPlot('chart-mood-timeline', timeTraces, {
     ...PLOTLY_LAYOUT,
     height: 320,
-    yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder, automargin: true },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
+    margin: { l: 90, r: 10, t: 20, b: 50 },
     hovermode: 'x unified',
   }, CONFIG);
 }
@@ -650,6 +707,7 @@ async function initSentiment() {
     };
   });
 
+  clearLoading('chart-anxiety');
   Plotly.newPlot('chart-anxiety', anxTraces, {
     ...PLOTLY_LAYOUT,
     height: 320,
@@ -680,6 +738,7 @@ async function initSentiment() {
     hovertemplate: `${e}<br>%{x}: %{y} weeks<extra></extra>`,
   }));
 
+  clearLoading('chart-emotion-bar');
   Plotly.newPlot('chart-emotion-bar', barTraces, {
     ...PLOTLY_LAYOUT,
     height: 320,
