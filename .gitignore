@@ -1,8 +1,38 @@
+# Python
 venv/
-.env
-gcs_key.json
-data/
-models/
 __pycache__/
 *.pyc
+*.pyo
+.env
+
+# GCP credentials — never commit
+*-sa-key.json
+gcs_key.json
+prefect-sa-key.json
+service-account*.json
+
+# Data output files — goes to GCS, not git
+*.jsonl
+*.txt
+data/
+
+# Generated / cache
+librosa_cache.json
+current_schema.json
+diagnostic_*.json
+first_line.json
+logs/
+
+# ML model artifacts (not dbt models)
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.bin
+
+# dbt compiled output only
+soundpulse_dbt/target/
+
+# OS
 .DS_Store
+Thumbs.db
