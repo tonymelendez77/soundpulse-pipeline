@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw data loaded from GCS via unified pipeline
+    database: soundpulse-production
+    schema: music_analytics
+    tables:
+      - name: trending_tracks
+        description: Daily trending tracks - iTunes + Last.fm + Billboard + Librosa
+      - name: reddit_posts
+        description: Reddit posts from music and news subreddits
+      - name: news_articles
+        description: News articles about world events
+      - name: youtube_videos
+        description: YouTube trending music videos by country
+      - name: billboard_hot100
+        description: Billboard Hot 100 chart data
+      - name: news_historical
+        description: Historical Guardian news by topic - 3 months daily
+      - name: trending_historical
+        description: Historical Billboard charts with Librosa audio features - 3 months weekly
+      - name: news_sentiment
+        description: Per-article emotion scores from DistilRoBERTa (Module 12 Layer 1). Populated by ingestion/news_sentiment.py.
+      - name: news_sentiment_weekly
+        description: Week x topic aggregated emotion scores with anxiety/tension/positivity indices. Populated by ingestion/news_sentiment.py.
+      - name: audio_mood_clusters
+        description: Per-track KMeans mood archetype assignments (euphoric/melancholic/aggressive/peaceful/groovy). Populated by ingestion/audio_mood_clusters.py.
+      - name: audio_mood_weekly
+        description: Week x source dominant mood distribution and avg audio features. Populated by ingestion/audio_mood_clusters.py.
+      - name: emotion_music_correlation
+        description: 50 Pearson correlation pairs (emotion x mood archetype) with p-values. Python-computed reference. Populated by ingestion/emotion_music_correlation.py.
+      - name: weekly_features
+        description: Week-level joined table (news emotion + audio mood) used as XGBoost input. Populated by ingestion/emotion_music_correlation.py.
+      - name: ml_predictions
+        description: XGBoost lag-1 predictions of next week's dominant audio mood archetype. Populated by ingestion/ml_predictions.py.
+      - name: shap_importance
+        description: SHAP feature importance values per emotion feature x mood archetype, ranked. Populated by ingestion/ml_predictions.py.

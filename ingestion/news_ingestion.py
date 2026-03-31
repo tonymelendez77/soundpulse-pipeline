@@ -196,7 +196,7 @@ def run_news_ingestion() -> pd.DataFrame:
         except Exception as e:
             logger.error(f"Guardian failed for '{item['query']}': {e}")
         finally:
-            time.sleep(1)
+            time.sleep(3)
 
     for item in MEDIASTACK_QUERIES:
         try:
@@ -204,9 +204,12 @@ def run_news_ingestion() -> pd.DataFrame:
             all_articles.extend(articles)
             logger.info(f"MediaStack '{item['topic']}' ({item['languages']}) → {len(articles)} articles")
         except Exception as e:
+            if "429" in str(e):
+                logger.warning(f"MediaStack rate limit hit — skipping remaining MediaStack queries")
+                break
             logger.error(f"MediaStack failed for '{item['keywords']}': {e}")
         finally:
-            time.sleep(1)
+            time.sleep(10)
 
     df = pd.DataFrame(all_articles)
 
@@ -235,8 +238,3 @@ if __name__ == "__main__":
     save_to_local(articles)
     from upload_helper import upload_to_gcs
     upload_to_gcs(articles, 'news')
-
-import sys
-sys.path.append('..')
-from upload_helper import upload_to_gcs
-upload_to_gcs(articles, 'news')

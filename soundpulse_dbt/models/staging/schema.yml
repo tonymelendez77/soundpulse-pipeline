@@ -1,0 +1,199 @@
+version: 2
+
+models:
+  - name: stg_reddit_posts
+    description: Cleaned Reddit posts from music subreddits
+    columns:
+      - name: post_id
+        description: Unique post identifier
+        tests:
+          - unique
+          - not_null
+      - name: score
+        description: Post score (upvotes - downvotes)
+        tests:
+          - not_null
+      - name: created_at
+        description: When the post was created
+        tests:
+          - not_null
+
+  - name: stg_news_articles
+    description: Cleaned news articles about music
+    columns:
+      - name: url
+        description: Article URL (unique identifier)
+        tests:
+          - unique
+          - not_null
+      - name: title
+        description: Article title
+        tests:
+          - not_null
+
+  - name: stg_spotify_tracks
+    description: Deduplicated Spotify tracks with audio features. NULLs filled with defaults.
+    columns:
+      - name: track_id
+        description: Unique track identifier
+        tests:
+          - unique
+          - not_null
+      - name: danceability
+        description: Danceability score (0-1), defaults to 0.5 if missing
+        tests:
+          - not_null
+
+  - name: stg_youtube_videos
+    description: Deduplicated YouTube music videos
+    columns:
+      - name: video_id
+        description: Unique video identifier
+        tests:
+          - unique
+          - not_null
+      - name: view_count
+        description: Number of views
+        tests:
+          - not_null
+
+  - name: stg_billboard_hot100
+    description: Cleaned Billboard Hot 100 chart data
+    columns:
+      - name: rank
+        description: Chart position
+        tests:
+          - not_null
+      - name: chart_date
+        description: Chart date
+        tests:
+          - not_null
+
+  - name: stg_news_sentiment
+    description: Per-article emotion scores from DistilRoBERTa. Date cast to DATE, composite indices added.
+    columns:
+      - name: article_date
+        tests:
+          - not_null
+      - name: topic
+        tests:
+          - not_null
+      - name: emotion
+        description: Primary emotion label (highest score)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['fear', 'anger', 'joy', 'sadness', 'surprise', 'disgust', 'neutral']
+      - name: fear_score
+        tests:
+          - not_null
+      - name: joy_score
+        tests:
+          - not_null
+
+  - name: stg_news_sentiment_weekly
+    description: Week x topic aggregated emotion scores with composite indices
+    columns:
+      - name: week_start
+        tests:
+          - not_null
+      - name: topic
+        tests:
+          - not_null
+      - name: article_count
+        tests:
+          - not_null
+      - name: dominant_emotion
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['fear', 'anger', 'joy', 'sadness', 'surprise', 'disgust', 'neutral']
+
+  - name: stg_audio_mood_clusters
+    description: Per-track KMeans mood archetype assignments
+    columns:
+      - name: title
+        tests:
+          - not_null
+      - name: mood_archetype
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
+      - name: chart_date
+        tests:
+          - not_null
+      - name: cluster_id
+        tests:
+          - not_null
+
+  - name: stg_audio_mood_weekly
+    description: Week x source dominant mood distribution and avg audio features
+    columns:
+      - name: week_start
+        tests:
+          - not_null
+      - name: chart_source
+        tests:
+          - not_null
+      - name: dominant_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
+      - name: track_count
+        tests:
+          - not_null
+
+  - name: stg_weekly_features
+    description: Week-level joined emotion+audio features table — XGBoost input
+    columns:
+      - name: week_start
+        tests:
+          - unique
+          - not_null
+      - name: dominant_emotion
+        tests:
+          - not_null
+      - name: dominant_mood
+        tests:
+          - not_null
+
+  - name: stg_ml_predictions
+    description: XGBoost lag-1 predictions of next week's dominant mood archetype
+    columns:
+      - name: week_start
+        tests:
+          - unique
+          - not_null
+      - name: actual_mood
+        tests:
+          - not_null
+      - name: predicted_mood
+        tests:
+          - not_null
+      - name: confidence
+        tests:
+          - not_null
+
+  - name: stg_shap_importance
+    description: SHAP feature importance values per emotion x mood archetype pair
+    columns:
+      - name: feature
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['avg_fear', 'avg_anger', 'avg_joy', 'avg_sadness',
+                         'avg_surprise', 'avg_disgust', 'avg_neutral',
+                         'anxiety_index', 'tension_index', 'positivity_index']
+      - name: mood_archetype
+        tests:
+          - not_null
+      - name: importance_rank
+        tests:
+          - not_null

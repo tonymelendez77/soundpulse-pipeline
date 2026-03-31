@@ -1,0 +1,121 @@
+version: 2
+
+models:
+  - name: fct_social_engagement
+    description: Combined social media engagement metrics from Reddit and YouTube
+    columns:
+      - name: platform
+        description: Social platform (reddit or youtube)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reddit']
+      - name: content_id
+        description: Unique content identifier
+        tests:
+          - not_null
+      - name: engagement_score
+        description: Overall engagement metric
+        tests:
+          - not_null
+
+  - name: fct_music_features
+    description: Track features with derived mood and energy classifications
+    columns:
+      - name: track_id
+        description: Unique track identifier
+        tests:
+          - unique
+          - not_null
+      - name: mood
+        description: Derived mood category
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['happy', 'sad', 'neutral']
+      - name: energy_level
+        description: Derived energy classification
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['high_energy', 'medium_energy', 'low_energy']
+      - name: kmeans_mood_archetype
+        description: KMeans-derived mood archetype from audio_mood_clusters. NULL when track is not in trending_historical.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
+
+  - name: fct_emotion_music_correlation
+    description: >
+      Pearson correlations between news emotion scores and audio mood archetypes,
+      computed via BigQuery CORR(). 50 rows (10 emotions x 5 mood archetypes).
+      'notable' flag (|r|>=0.3) replaces p-value significance — query source
+      table emotion_music_correlation for p-values.
+    columns:
+      - name: emotion
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['avg_fear', 'avg_anger', 'avg_joy', 'avg_sadness',
+                         'avg_surprise', 'avg_disgust', 'avg_neutral',
+                         'anxiety_index', 'tension_index', 'positivity_index']
+      - name: mood_archetype
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
+      - name: pearson_r
+        tests:
+          - not_null
+      - name: direction
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['positive', 'negative', 'zero']
+
+  - name: fct_mood_prediction_summary
+    description: >
+      Per-week XGBoost prediction results with model-level accuracy stats.
+      Does not retrain the model — exposes stg_ml_predictions for dashboards.
+    columns:
+      - name: week_start
+        tests:
+          - not_null
+      - name: actual_mood
+        tests:
+          - not_null
+      - name: predicted_mood
+        tests:
+          - not_null
+      - name: correct
+        tests:
+          - not_null
+      - name: overall_accuracy
+        tests:
+          - not_null
+
+  - name: fct_chart_performance
+    description: Billboard chart performance with time dimensions
+    columns:
+      - name: rank
+        description: Chart position
+        tests:
+          - not_null
+      - name: rank_category
+        description: Rank grouping
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Top 10', 'Top 25', 'Top 50', 'Top 100']
+      - name: chart_date
+        description: Chart week date
+        tests:
+          - not_null
