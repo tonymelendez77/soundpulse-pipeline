@@ -5,7 +5,7 @@ WITH source AS (
 cleaned AS (
     SELECT
         CAST(week_start AS DATE) AS week_start,
-        source                   AS chart_source,
+        chart_name               AS chart_source,
         dominant_mood,
         track_count,
         euphoric_pct,

@@ -123,7 +123,7 @@ models:
           - accepted_values:
               arguments:
                 values: ['euphoric', 'melancholic', 'aggressive', 'peaceful', 'groovy']
-      - name: chart_date
+      - name: week_start
         tests:
           - not_null
       - name: cluster_id

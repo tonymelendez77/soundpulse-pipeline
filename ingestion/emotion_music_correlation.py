@@ -132,7 +132,7 @@ def main():
         .reset_index()
     )
     audio_weekly["dominant_mood"] = (
-        audio_df.groupby("week_start").apply(dominant_mood_for_week).values
+        audio_df.groupby("week_start", group_keys=False).apply(dominant_mood_for_week).values
     )
     audio_weekly["week_start"] = pd.to_datetime(audio_weekly["week_start"])
 
@@ -156,6 +156,10 @@ def main():
             if mask.sum() < 3:
                 continue
             r, p = pearsonr(x[mask], y[mask])
+            # Skip constant-input pairs — NaN is not valid JSON for BigQuery
+            if np.isnan(r) or np.isnan(p):
+                logger.debug(f"  Skipping {emotion} ↔ {mood_pct} (constant input, r=NaN)")
+                continue
             corr_rows.append({
                 "emotion":        emotion,
                 "mood_archetype": mood_pct.replace("_pct", ""),

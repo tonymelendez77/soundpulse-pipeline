@@ -50,14 +50,15 @@ FEATURE_COLS = [
 ]
 
 # Columns to carry through to output
-META_COLS = ["title", "artist", "chart_date", "source", "chart_rank", "genre"]
+# Actual trending_historical columns: week_start, chart_name, rank, itunes_genre
+META_COLS = ["title", "artist", "week_start", "chart_name", "rank", "itunes_genre"]
 
 DST_SCHEMA = [
     bigquery.SchemaField("title",              "STRING"),
     bigquery.SchemaField("artist",             "STRING"),
-    bigquery.SchemaField("chart_date",         "DATE"),
-    bigquery.SchemaField("source",             "STRING"),
-    bigquery.SchemaField("chart_rank",         "INTEGER"),
+    bigquery.SchemaField("week_start",         "DATE"),
+    bigquery.SchemaField("chart_name",         "STRING"),
+    bigquery.SchemaField("rank",               "INTEGER"),
     bigquery.SchemaField("genre",              "STRING"),
     bigquery.SchemaField("cluster_id",         "INTEGER"),
     bigquery.SchemaField("mood_archetype",     "STRING"),
@@ -74,7 +75,7 @@ DST_SCHEMA = [
 
 AGG_SCHEMA = [
     bigquery.SchemaField("week_start",         "DATE"),
-    bigquery.SchemaField("source",             "STRING"),
+    bigquery.SchemaField("chart_name",         "STRING"),
     bigquery.SchemaField("dominant_mood",      "STRING"),
     bigquery.SchemaField("track_count",        "INTEGER"),
     bigquery.SchemaField("euphoric_pct",       "FLOAT64"),
@@ -232,10 +233,10 @@ def main():
         {
             "title":            str(r["title"]),
             "artist":           str(r["artist"]),
-            "chart_date":       str(pd.to_datetime(r["chart_date"]).date()),
-            "source":           str(r["source"]),
-            "chart_rank":       int(r["chart_rank"]) if pd.notna(r["chart_rank"]) else None,
-            "genre":            str(r["genre"]) if pd.notna(r["genre"]) else None,
+            "week_start":       str(pd.to_datetime(r["week_start"]).date()),
+            "chart_name":       str(r["chart_name"]) if pd.notna(r["chart_name"]) else None,
+            "rank":             int(r["rank"]) if pd.notna(r["rank"]) else None,
+            "genre":            str(r["itunes_genre"]) if pd.notna(r["itunes_genre"]) else None,
             "cluster_id":       int(r["cluster_id"]),
             "mood_archetype":   r["mood_archetype"],
             "valence":          round(float(r["valence"]), 6),
@@ -254,15 +255,11 @@ def main():
 
     # 7. Weekly aggregation
     logger.info("Building weekly mood aggregates …")
-    df["chart_date_dt"] = pd.to_datetime(df["chart_date"])
-    df["week_start"] = (
-        df["chart_date_dt"] - pd.to_timedelta(df["chart_date_dt"].dt.dayofweek, unit="d")
-    ).dt.date.astype(str)
-
-    all_archetypes = list(cluster_name_map.values())
+    # week_start already exists in the source table — just normalise to string
+    df["week_start"] = pd.to_datetime(df["week_start"]).dt.date.astype(str)
 
     agg_rows = []
-    for (week_start, source), grp in df.groupby(["week_start", "source"]):
+    for (week_start, chart_name), grp in df.groupby(["week_start", "chart_name"]):
         mood_counts  = grp["mood_archetype"].value_counts()
         total        = len(grp)
         dominant     = mood_counts.index[0] if len(mood_counts) else "unknown"
@@ -272,7 +269,7 @@ def main():
         }
         agg_rows.append({
             "week_start":       str(week_start),
-            "source":           str(source),
+            "chart_name":       str(chart_name),
             "dominant_mood":    dominant,
             "track_count":      total,
             **pcts,
