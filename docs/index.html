@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundPulse — Does the World Shape Music?</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --accent:   #58a6ff;
+      --euphoric: #ffd166;
+      --melancholic: #118ab2;
+      --aggressive:  #ef476f;
+      --peaceful:    #06d6a0;
+      --groovy:      #8338ec;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 32px; height: 56px;
+    }
+    nav .logo { font-weight: 700; font-size: 1.05rem; color: var(--accent); text-decoration: none; }
+    nav a { color: var(--muted); text-decoration: none; font-size: .9rem; transition: color .2s; }
+    nav a:hover { color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(88,166,255,.12) 0%, transparent 70%);
+    }
+    .hero .badge {
+      display: inline-block;
+      background: rgba(88,166,255,.12);
+      border: 1px solid rgba(88,166,255,.3);
+      color: var(--accent);
+      font-size: .78rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { color: var(--muted); max-width: 620px; margin: 0 auto 32px; font-size: 1.05rem; }
+
+    /* ── AUDIO PLAYER ── */
+    .audio-card {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 32px;
+      margin: 0 auto;
+    }
+    .audio-card .mood-badge {
+      background: var(--aggressive);
+      color: #fff;
+      font-size: .75rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 20px;
+    }
+    .audio-card .prompt-text {
+      font-size: .82rem; color: var(--muted); max-width: 420px; text-align: center; font-style: italic;
+    }
+    audio {
+      width: 340px;
+      accent-color: var(--aggressive);
+    }
+    .audio-card .week-label { font-size: .78rem; color: var(--muted); }
+
+    /* ── SECTIONS ── */
+    section { padding: 64px 24px; max-width: 1100px; margin: 0 auto; }
+    section + section { border-top: 1px solid var(--border); }
+
+    .section-label {
+      font-size: .75rem; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+    }
+    h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: var(--muted); font-size: .95rem; margin-bottom: 32px; max-width: 680px; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+
+    /* ── METRICS ── */
+    .metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 32px; }
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 28px;
+      flex: 1; min-width: 160px;
+    }
+    .metric .value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .metric .label { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── PREDICTION TABLE ── */
+    .pred-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    .pred-table th {
+      text-align: left; padding: 10px 14px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      color: var(--muted); font-weight: 600;
+    }
+    .pred-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .pred-table tr.correct td { background: rgba(6,214,160,.06); }
+    .pred-table tr.wrong  td { background: rgba(239,71,111,.06); }
+    .pred-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: .75rem; font-weight: 700;
+    }
+
+    /* ── SIMILAR TRACKS ── */
+    .track-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .track-list li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      font-size: .88rem;
+    }
+    .track-list li .rank { color: var(--muted); font-size: .78rem; width: 20px; }
+    .track-list li .sim { margin-left: auto; color: var(--muted); font-size: .78rem; }
+
+    /* ── TECH STACK ── */
+    .tech-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .tech-pill {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 14px; font-size: .82rem; color: var(--muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: .85rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ── LOADING ── */
+    .loading { color: var(--muted); font-size: .9rem; text-align: center; padding: 40px; }
+
+    /* ── MOOD CHIP ── */
+    .mood-chip {
+      display: inline-block; padding: 2px 10px; border-radius: 12px;
+      font-size: .78rem; font-weight: 700; color: #fff;
+    }
+    .mood-euphoric   { background: var(--euphoric); color: #000; }
+    .mood-melancholic { background: var(--melancholic); }
+    .mood-aggressive { background: var(--aggressive); }
+    .mood-peaceful   { background: var(--peaceful); color: #000; }
+    .mood-groovy     { background: var(--groovy); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#">🎵 SoundPulse</a>
+  <a href="#correlation">Correlation</a>
+  <a href="#timeline">Timeline</a>
+  <a href="#prediction">Prediction</a>
+  <a href="#trends">Trends</a>
+  <a href="#sentiment">Sentiment</a>
+  <a href="#ai-track">AI Track</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge">Data Engineering · ML · GenAI Portfolio</div>
+  <h1>Does the World Shape <span>Music?</span></h1>
+  <p>A 14-module data pipeline that proves world events influence music listening habits —
+     and generates a custom music clip to match next week's predicted mood.</p>
+
+  <!-- AUDIO PLAYER — loaded by JS -->
+  <div class="audio-card" id="audio-card">
+    <div class="mood-badge" id="audio-mood">Loading…</div>
+    <div class="prompt-text" id="audio-prompt">Fetching AI-generated track…</div>
+    <audio id="audio-player" controls preload="metadata">
+      <source src="audio/track.wav" type="audio/wav" />
+      Your browser does not support the audio element.
+    </audio>
+    <div class="week-label" id="audio-week"></div>
+  </div>
+</div>
+
+<!-- ──────────────── SECTION 1 — CORRELATION ──────────────── -->
+<section id="correlation">
+  <div class="section-label">Module 11 · Pearson r</div>
+  <h2>News Emotions → Music Mood Correlation</h2>
+  <p class="subtitle">
+    Pearson r computed between 16 weeks of DistilRoBERTa emotion scores from Guardian news
+    and KMeans audio mood archetype percentages. Notable pairs (|r| ≥ 0.3) are marked ★.
+  </p>
+  <div class="card">
+    <div id="chart-heatmap" class="loading">Loading chart…</div>
+  </div>
+</section>
+
+<!-- ──────────────── SECTION 2 — TIMELINE ──────────────── -->
+<section id="timeline">
+  <div class="section-label">Module 12 · XGBoost Input</div>
+  <h2>World Sentiment vs. Music Mood Over Time</h2>
+  <p class="subtitle">
+    Weekly composite sentiment indices (Anxiety = fear + sadness, Tension = anger + disgust,
+    Positivity = joy + surprise) plotted against the dominant audio mood archetype each week.
+  </p>
+  <div class="card">
+    <div id="chart-timeline" class="loading">Loading chart…</div>
+  </div>
+</section>
+
+<!-- ──────────────── SECTION 3 — PREDICTION ──────────────── -->
+<section id="prediction">
+  <div class="section-label">Module 12 · XGBoost + SHAP</div>
+  <h2>AI Mood Prediction</h2>
+  <p class="subtitle">
+    Lag-1 XGBoost model: this week's news emotion → next week's dominant audio mood.
+    SHAP values explain which emotions drive each prediction.
+  </p>
+
+  <div class="metrics" id="pred-metrics">
+    <div class="metric"><div class="value">—</div><div class="label">Overall Accuracy</div></div>
+    <div class="metric"><div class="value">—</div><div class="label">Avg Confidence</div></div>
+    <div class="metric"><div class="value">—</div><div class="label">Weeks Evaluated</div></div>
+    <div class="metric"><div class="value">—</div><div class="label">Correct Predictions</div></div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <b>SHAP Feature Importance</b>
+      <div id="chart-shap" class="loading" style="margin-top:12px">Loading chart…</div>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <b>Per-Week Prediction History</b>
+      <div style="margin-top:12px" id="pred-table-wrap"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── SECTION 4 — TRENDS ──────────────── -->
+<section id="trends">
+  <div class="section-label">Module 10 · KMeans Audio Clustering</div>
+  <h2>Music Mood Trends by Chart Source</h2>
+  <p class="subtitle">
+    KMeans (k=5) mood archetype assignments across Billboard, iTunes, and Last.fm charts.
+    Radar shows the latest week; timeline tracks how dominance shifted.
+  </p>
+  <div class="chart-grid">
+    <div class="card">
+      <b>Mood Distribution — Latest Week (Radar)</b>
+      <div id="chart-radar" class="loading" style="margin-top:12px">Loading chart…</div>
+    </div>
+    <div class="card">
+      <b>Dominant Mood Over Time by Source</b>
+      <div id="chart-mood-timeline" class="loading" style="margin-top:12px">Loading chart…</div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── SECTION 5 — SENTIMENT ──────────────── -->
+<section id="sentiment">
+  <div class="section-label">Module 9 · DistilRoBERTa</div>
+  <h2>News Sentiment by Topic</h2>
+  <p class="subtitle">
+    6,348 Guardian articles classified with j-hartmann/emotion-english-distilroberta-base (7 emotions).
+    Aggregated weekly by topic into composite anxiety, tension, and positivity indices.
+  </p>
+  <div class="chart-grid">
+    <div class="card">
+      <b>Anxiety Index by Topic Over Time</b>
+      <div id="chart-anxiety" class="loading" style="margin-top:12px">Loading chart…</div>
+    </div>
+    <div class="card">
+      <b>Dominant Emotion by Topic (stacked)</b>
+      <div id="chart-emotion-bar" style="margin-top:12px" class="loading">Loading chart…</div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── SECTION 6 — AI TRACK ──────────────── -->
+<section id="ai-track">
+  <div class="section-label">Module 13 · MusicGen + Pinecone</div>
+  <h2>AI-Generated Music</h2>
+  <p class="subtitle">
+    The pipeline queries a Pinecone vector index of 1,011 real tracks (30 Librosa features),
+    retrieves the 10 most sonically similar to next week's predicted mood,
+    computes their average audio DNA, and feeds a natural-language prompt to
+    <strong>facebook/musicgen-small</strong> to generate a 10-second clip.
+  </p>
+
+  <div class="chart-grid" style="align-items: start;">
+    <div class="card">
+      <b>How the Prompt Was Built</b>
+      <div style="margin-top:14px; font-size:.88rem; color:var(--muted); line-height:1.8" id="prompt-breakdown">
+        Loading…
+      </div>
+    </div>
+    <div class="card">
+      <b>10 Most Sonically Similar Real Tracks</b>
+      <ul class="track-list" id="similar-tracks" style="margin-top:12px">
+        <li class="loading">Loading…</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────── TECH STACK ──────────────── -->
+<section id="tech">
+  <div class="section-label">Architecture</div>
+  <h2>14-Module Pipeline</h2>
+  <p class="subtitle">End-to-end data engineering, ML, and GenAI — all on free-tier services.</p>
+  <div class="tech-grid">
+    <span class="tech-pill">🐍 Python 3.12</span>
+    <span class="tech-pill">☁️ BigQuery</span>
+    <span class="tech-pill">🪣 Google Cloud Storage</span>
+    <span class="tech-pill">🔄 dbt-bigquery</span>
+    <span class="tech-pill">🤗 DistilRoBERTa</span>
+    <span class="tech-pill">🎵 Librosa</span>
+    <span class="tech-pill">🤖 XGBoost + SHAP</span>
+    <span class="tech-pill">🧠 KMeans (scikit-learn)</span>
+    <span class="tech-pill">📌 Pinecone (vector DB)</span>
+    <span class="tech-pill">🎼 MusicGen-small</span>
+    <span class="tech-pill">⚡ FastAPI</span>
+    <span class="tech-pill">📊 Streamlit</span>
+    <span class="tech-pill">🔀 Prefect (orchestration)</span>
+    <span class="tech-pill">📈 Plotly</span>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>Built with ❤️ as a portfolio project ·
+    <a href="https://github.com" target="_blank">GitHub</a>
+  </p>
+  <p style="margin-top:6px; font-size:.78rem;">
+    Data: Guardian API · Spotify · Last.fm · Billboard · iTunes · YouTube · Reddit
+  </p>
+</footer>
+
+<script>
+// ──────────────────────────────────────────────────────────────
+// Config
+// ──────────────────────────────────────────────────────────────
+const MOOD_COLORS = {
+  euphoric:    '#ffd166',
+  melancholic: '#118ab2',
+  aggressive:  '#ef476f',
+  peaceful:    '#06d6a0',
+  groovy:      '#8338ec',
+};
+const MOOD_COLS  = ['euphoric_pct','melancholic_pct','aggressive_pct','peaceful_pct','groovy_pct'];
+const MOOD_LABELS= ['Euphoric','Melancholic','Aggressive','Peaceful','Groovy'];
+
+const PLOTLY_LAYOUT = {
+  paper_bgcolor: 'transparent',
+  plot_bgcolor:  'transparent',
+  font:          { color: '#e6edf3', family: '-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif' },
+  xaxis:         { gridcolor: '#30363d', linecolor: '#30363d', zerolinecolor: '#30363d' },
+  yaxis:         { gridcolor: '#30363d', linecolor: '#30363d', zerolinecolor: '#30363d' },
+  margin:        { l: 10, r: 10, t: 30, b: 40 },
+  legend:        { bgcolor: 'transparent' },
+};
+const CONFIG = { responsive: true, displayModeBar: false };
+
+async function load(file) {
+  const r = await fetch(`data/${file}`);
+  if (!r.ok) throw new Error(`Failed to load ${file}: ${r.status}`);
+  return r.json();
+}
+
+function moodChip(mood) {
+  const c = MOOD_COLORS[mood] || '#888';
+  const textColor = ['euphoric','peaceful'].includes(mood) ? '#000' : '#fff';
+  return `<span class="mood-chip" style="background:${c};color:${textColor}">${mood}</span>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Audio card
+// ──────────────────────────────────────────────────────────────
+async function initAudio() {
+  try {
+    const tracks = await load('generated_tracks.json');
+    if (!tracks.length) return;
+    const t = tracks[0];
+    document.getElementById('audio-mood').textContent = t.mood_archetype.toUpperCase();
+    document.getElementById('audio-mood').style.background = MOOD_COLORS[t.mood_archetype] || '#888';
+    document.getElementById('audio-prompt').textContent = `"${t.prompt_text}"`;
+    document.getElementById('audio-week').textContent = `Week of ${t.week_start} · ${parseFloat(t.duration_seconds).toFixed(1)}s`;
+  } catch(e) { console.warn('Audio card:', e); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Chart 1 — Correlation heatmap
+// ──────────────────────────────────────────────────────────────
+async function initHeatmap() {
+  const data = await load('correlation.json');
+
+  const emotions   = [...new Set(data.map(d => d.emotion))].sort();
+  const archetypes = [...new Set(data.map(d => d.mood_archetype))].sort();
+
+  const z = archetypes.map(arch =>
+    emotions.map(em => {
+      const row = data.find(d => d.emotion === em && d.mood_archetype === arch);
+      return row ? parseFloat(row.pearson_r) : 0;
+    })
+  );
+
+  // Build annotation text (show r value + ★ for notable)
+  const text = archetypes.map(arch =>
+    emotions.map(em => {
+      const row = data.find(d => d.emotion === em && d.mood_archetype === arch);
+      if (!row) return '';
+      const r = parseFloat(row.pearson_r).toFixed(2);
+      return row.notable ? `${r}★` : r;
+    })
+  );
+
+  const emotionLabels = emotions.map(e => e.replace('avg_','').replace(/_/g,' '));
+  const archLabels    = archetypes.map(a => a.charAt(0).toUpperCase() + a.slice(1));
+
+  Plotly.newPlot('chart-heatmap', [{
+    type: 'heatmap', z, x: emotionLabels, y: archLabels, text,
+    texttemplate: '%{text}', textfont: { size: 11 },
+    colorscale: 'RdBu', zmid: 0, zmin: -1, zmax: 1,
+    colorbar: { title: 'r', len: 0.8 },
+    reversescale: true,
+    hovertemplate: '%{y} × %{x}<br>r = %{z:.3f}<extra></extra>',
+  }], {
+    ...PLOTLY_LAYOUT,
+    height: 320,
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'News Emotion' },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '' },
+  }, CONFIG);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Chart 2 — Timeline (dual axis)
+// ──────────────────────────────────────────────────────────────
+async function initTimeline() {
+  const data = await load('timeline.json');
+  const weeks = data.map(d => d.week_start);
+
+  const indexTraces = [
+    { key: 'anxiety_index',    name: 'Anxiety',    color: '#ef476f' },
+    { key: 'tension_index',    name: 'Tension',    color: '#f4a261' },
+    { key: 'positivity_index', name: 'Positivity', color: '#06d6a0' },
+  ].map(({ key, name, color }) => ({
+    type: 'scatter', mode: 'lines+markers',
+    x: weeks, y: data.map(d => d[key]),
+    name, line: { color, width: 2 }, marker: { size: 5 },
+    yaxis: 'y',
+    hovertemplate: `%{x}<br>${name}: %{y:.3f}<extra></extra>`,
+  }));
+
+  const moodMap = { euphoric: 4, melancholic: 3, aggressive: 2, peaceful: 1, groovy: 0 };
+  const moodColors = data.map(d => MOOD_COLORS[d.dominant_mood] || '#888');
+
+  const moodTrace = {
+    type: 'scatter', mode: 'markers+text',
+    x: weeks,
+    y: data.map(d => moodMap[d.dominant_mood] ?? 2),
+    name: 'Dominant Mood',
+    marker: { size: 12, color: moodColors, line: { width: 1, color: '#fff' } },
+    text: data.map(d => d.dominant_mood),
+    textposition: 'top center',
+    textfont: { size: 9 },
+    yaxis: 'y2',
+    hovertemplate: 'Mood: %{text}<extra></extra>',
+  };
+
+  Plotly.newPlot('chart-timeline', [...indexTraces, moodTrace], {
+    ...PLOTLY_LAYOUT,
+    height: 360,
+    yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Sentiment Index', range: [-0.05, 1.05] },
+    yaxis2: {
+      overlaying: 'y', side: 'right', title: 'Mood',
+      tickvals: [0,1,2,3,4], ticktext: ['groovy','peaceful','aggressive','melancholic','euphoric'],
+      range: [-0.5, 4.8], gridcolor: '#30363d', showgrid: false,
+    },
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
+    legend: { x: 0, y: 1 },
+    hovermode: 'x unified',
+  }, CONFIG);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Chart 3 — SHAP + predictions
+// ──────────────────────────────────────────────────────────────
+async function initPrediction() {
+  const [shapData, predData] = await Promise.all([load('shap.json'), load('predictions.json')]);
+
+  // ── Metrics
+  if (predData.length) {
+    const last = predData[predData.length - 1];
+    const metrics = document.getElementById('pred-metrics');
+    metrics.innerHTML = `
+      <div class="metric"><div class="value">${(last.overall_accuracy*100).toFixed(0)}%</div><div class="label">Overall Accuracy</div></div>
+      <div class="metric"><div class="value">${(last.avg_confidence*100).toFixed(0)}%</div><div class="label">Avg Confidence</div></div>
+      <div class="metric"><div class="value">${last.total_weeks}</div><div class="label">Weeks Evaluated</div></div>
+      <div class="metric"><div class="value">${last.correct_predictions}</div><div class="label">Correct Predictions</div></div>
+    `;
+  }
+
+  // ── SHAP bar
+  const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
+  const features   = [...new Set(shapData.map(d => d.feature))];
+
+  const shapTraces = archetypes.map(arch => {
+    const rows = shapData.filter(d => d.mood_archetype === arch)
+      .sort((a,b) => a.importance_rank - b.importance_rank);
+    return {
+      type: 'bar', orientation: 'h',
+      name: arch,
+      x: rows.map(d => parseFloat(d.mean_abs_shap)),
+      y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+      marker: { color: MOOD_COLORS[arch] || '#888' },
+      hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-shap', shapTraces, {
+    ...PLOTLY_LAYOUT,
+    height: 360,
+    barmode: 'group',
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|' },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+    margin: { l: 100, r: 10, t: 20, b: 40 },
+  }, CONFIG);
+
+  // ── Prediction table
+  const rows = predData.map(d => {
+    const cls = d.correct ? 'correct' : 'wrong';
+    const conf = (parseFloat(d.confidence)*100).toFixed(0);
+    return `
+      <tr class="${cls}">
+        <td>${d.week_start}</td>
+        <td>${moodChip(d.predicted_mood)}</td>
+        <td>${moodChip(d.actual_mood)}</td>
+        <td>${d.correct ? '✅' : '❌'}</td>
+        <td>${conf}%</td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('pred-table-wrap').innerHTML = `
+    <table class="pred-table">
+      <thead><tr><th>Week</th><th>Predicted</th><th>Actual</th><th></th><th>Confidence</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Chart 4 — Trends (radar + timeline)
+// ──────────────────────────────────────────────────────────────
+async function initTrends() {
+  const data = await load('mood_weekly.json');
+
+  // Latest week radar
+  const maxWeek = data.reduce((a,b) => a.week_start > b.week_start ? a : b).week_start;
+  const latest  = data.filter(d => d.week_start === maxWeek);
+
+  const radarTraces = latest.map(row => ({
+    type: 'scatterpolar',
+    r: [...MOOD_COLS.map(c => parseFloat(row[c])), parseFloat(row[MOOD_COLS[0]])],
+    theta: [...MOOD_LABELS, MOOD_LABELS[0]],
+    fill: 'toself', name: row.chart_source, opacity: 0.65,
+    hovertemplate: `%{theta}: %{r:.1%}<extra>${row.chart_source}</extra>`,
+  }));
+
+  Plotly.newPlot('chart-radar', radarTraces, {
+    ...PLOTLY_LAYOUT,
+    height: 320,
+    polar: { radialaxis: { visible: true, range: [0,1], tickformat: '.0%', gridcolor: '#30363d' },
+             angularaxis: { gridcolor: '#30363d', linecolor: '#30363d' },
+             bgcolor: 'transparent' },
+    title: { text: `Week of ${maxWeek}`, font: { size: 12, color: '#8b949e' }, y: 0.98 },
+    margin: { l: 40, r: 40, t: 40, b: 20 },
+  }, CONFIG);
+
+  // Dominant mood over time per source
+  const sources = [...new Set(data.map(d => d.chart_source))];
+  const moodOrder = ['euphoric','melancholic','aggressive','peaceful','groovy'];
+
+  const timeTraces = sources.map(src => {
+    const rows = data.filter(d => d.chart_source === src).sort((a,b) => a.week_start > b.week_start ? 1 : -1);
+    return {
+      type: 'scatter', mode: 'lines+markers',
+      name: src,
+      x: rows.map(d => d.week_start),
+      y: rows.map(d => d.dominant_mood),
+      hovertemplate: `${src}<br>%{x}<br>%{y}<extra></extra>`,
+      marker: { size: 6 },
+    };
+  });
+
+  Plotly.newPlot('chart-mood-timeline', timeTraces, {
+    ...PLOTLY_LAYOUT,
+    height: 320,
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder },
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
+    hovermode: 'x unified',
+  }, CONFIG);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Chart 5 — News sentiment
+// ──────────────────────────────────────────────────────────────
+async function initSentiment() {
+  const data = await load('news_sentiment.json');
+
+  const topics = [...new Set(data.map(d => d.topic))].sort();
+
+  // Anxiety index lines
+  const anxTraces = topics.map(t => {
+    const rows = data.filter(d => d.topic === t).sort((a,b) => a.week_start > b.week_start ? 1 : -1);
+    return {
+      type: 'scatter', mode: 'lines+markers', name: t,
+      x: rows.map(d => d.week_start),
+      y: rows.map(d => parseFloat(d.anxiety_index)),
+      marker: { size: 4 },
+      hovertemplate: `${t}<br>%{x}<br>anxiety: %{y:.3f}<extra></extra>`,
+    };
+  });
+
+  Plotly.newPlot('chart-anxiety', anxTraces, {
+    ...PLOTLY_LAYOUT,
+    height: 320,
+    yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Anxiety Index' },
+    xaxis:  { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
+    hovermode: 'x unified',
+  }, CONFIG);
+
+  // Stacked bar: dominant emotion per topic across all weeks
+  const emotions = ['fear','anger','joy','sadness','surprise','disgust','neutral'];
+  const emotionColors = {
+    fear: '#ef476f', anger: '#f4a261', joy: '#ffd166', sadness: '#118ab2',
+    surprise: '#8338ec', disgust: '#06d6a0', neutral: '#8b949e',
+  };
+
+  const emotionCounts = {};
+  emotions.forEach(e => { emotionCounts[e] = topics.map(() => 0); });
+  data.forEach(d => {
+    const ti = topics.indexOf(d.topic);
+    if (ti >= 0 && emotionCounts[d.dominant_emotion] !== undefined)
+      emotionCounts[d.dominant_emotion][ti]++;
+  });
+
+  const barTraces = emotions.map(e => ({
+    type: 'bar', name: e,
+    x: topics, y: emotionCounts[e],
+    marker: { color: emotionColors[e] },
+    hovertemplate: `${e}<br>%{x}: %{y} weeks<extra></extra>`,
+  }));
+
+  Plotly.newPlot('chart-emotion-bar', barTraces, {
+    ...PLOTLY_LAYOUT,
+    height: 320,
+    barmode: 'stack',
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Topic' },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Weeks as Dominant Emotion' },
+  }, CONFIG);
+}
+
+// ──────────────────────────────────────────────────────────────
+// AI Track section
+// ──────────────────────────────────────────────────────────────
+async function initAITrack() {
+  const tracks = await load('generated_tracks.json');
+  if (!tracks.length) return;
+  const t = tracks[0];
+
+  // Prompt breakdown
+  document.getElementById('prompt-breakdown').innerHTML = `
+    <table style="width:100%; border-collapse:collapse">
+      <tr><td style="color:var(--muted); width:120px; padding:6px 0">Mood</td>
+          <td>${moodChip(t.mood_archetype)}</td></tr>
+      <tr><td style="color:var(--muted); padding:6px 0">Week</td>
+          <td>${t.week_start}</td></tr>
+      <tr><td style="color:var(--muted); padding:6px 0">Duration</td>
+          <td>${parseFloat(t.duration_seconds).toFixed(1)}s</td></tr>
+      <tr><td style="color:var(--muted); padding:6px 0">Prompt</td>
+          <td style="font-style:italic; color:var(--muted)">"${t.prompt_text}"</td></tr>
+      <tr><td style="color:var(--muted); padding:6px 0">GCS path</td>
+          <td style="font-size:.78rem; word-break:break-all; color:var(--muted)">${t.audio_gcs_path}</td></tr>
+      <tr><td style="color:var(--muted); padding:6px 0">Generated</td>
+          <td>${t.generated_at}</td></tr>
+    </table>`;
+
+  // Similar tracks
+  let similar = [];
+  try { similar = JSON.parse(t.similar_tracks_json || '[]'); } catch {}
+  const ul = document.getElementById('similar-tracks');
+  if (!similar.length) { ul.innerHTML = '<li>No similar tracks data.</li>'; return; }
+
+  ul.innerHTML = similar.map((s, i) => `
+    <li>
+      <span class="rank">${i+1}</span>
+      <span><strong>${s.title || '?'}</strong> — ${s.artist || '?'}</span>
+      ${s.score !== undefined ? `<span class="sim">${parseFloat(s.score).toFixed(3)}</span>` : ''}
+    </li>`).join('');
+}
+
+// ──────────────────────────────────────────────────────────────
+// Boot — run all in parallel, show errors gracefully
+// ──────────────────────────────────────────────────────────────
+function errEl(id, e) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = `<span style="color:var(--aggressive);font-size:.85rem">⚠ ${e.message}</span>`;
+}
+
+(async () => {
+  await Promise.allSettled([
+    initAudio()      .catch(e => errEl('audio-card', e)),
+    initHeatmap()    .catch(e => errEl('chart-heatmap', e)),
+    initTimeline()   .catch(e => errEl('chart-timeline', e)),
+    initPrediction() .catch(e => errEl('chart-shap', e)),
+    initTrends()     .catch(e => errEl('chart-radar', e)),
+    initSentiment()  .catch(e => errEl('chart-anxiety', e)),
+    initAITrack()    .catch(e => errEl('prompt-breakdown', e)),
+  ]);
+})();
+</script>
+</body>
+</html>
