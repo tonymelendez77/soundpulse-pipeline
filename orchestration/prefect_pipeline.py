@@ -7,14 +7,15 @@ Setup & run instructions are in orchestration/README_PREFECT.md
 Schedule: 0 2 * * *  (daily at 02:00 UTC)
 """
 
+import json
 import subprocess
 import sys
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from prefect import flow, task, get_run_logger
-from prefect.tasks import task_input_hash
-from datetime import timedelta
 
 # ── Repo root (one level up from this file) ──────────────────────────────────
 REPO_ROOT = Path(__file__).parent.parent
@@ -165,6 +166,30 @@ def run_musicgen():
 def run_export():
     _run("serving/export_static.py", "M14-export")
 
+def _write_run_log(run_record: dict) -> None:
+    """Append/update a run record in docs/data/pipeline_runs.json."""
+    runs_path = REPO_ROOT / "docs" / "data" / "pipeline_runs.json"
+    runs_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing = []
+    if runs_path.exists():
+        try:
+            existing = json.loads(runs_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing = []
+
+    # Update in-place if run_id already exists (e.g. final status update), else append
+    ids = {r.get("run_id") for r in existing}
+    if run_record["run_id"] in ids:
+        existing = [run_record if r.get("run_id") == run_record["run_id"] else r for r in existing]
+    else:
+        existing.insert(0, run_record)   # newest first
+
+    # Keep last 90 days / 90 runs
+    existing = existing[:90]
+    runs_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+
+
 @task(name="M14 · Git commit + push docs/data/", retries=1, retry_delay_seconds=30)
 def git_push_docs():
     logger = get_run_logger()
@@ -185,6 +210,14 @@ def git_push_docs():
 # MAIN FLOW
 # ════════════════════════════════════════════════════════════════════════════
 
+MODULE_NAMES = [
+    "M1-news", "M1-reddit", "M1-youtube",
+    "M2-spotify", "M3-itunes", "M4-lastfm", "M5-billboard", "M6-librosa",
+    "M7-dbt", "M9-emotion", "M10-kmeans", "M11-correlation",
+    "M12-xgboost", "M13a-pinecone", "M13b-musicgen", "M14-export",
+]
+
+
 @flow(
     name="SoundPulse — Daily Pipeline",
     description="Full 14-module pipeline: ingest → dbt → NLP → cluster → ML → GenAI → export",
@@ -192,56 +225,94 @@ def git_push_docs():
 )
 def soundpulse_daily():
     logger = get_run_logger()
-    logger.info(f"Pipeline started at {datetime.now(timezone.utc).isoformat()}")
+    run_id      = str(uuid.uuid4())[:8]
+    started_at  = datetime.now(timezone.utc)
+    t0          = time.time()
+    modules_ok  = []
+    tasks_ok    = 0
+    tasks_total = len(MODULE_NAMES)
 
-    # ── Layer 1: Ingestion (parallel sources) ────────────────────────────────
-    news_f      = ingest_news.submit()
-    reddit_f    = ingest_reddit.submit()
-    youtube_f   = ingest_youtube.submit()
-    spotify_f   = ingest_spotify.submit()
-    itunes_f    = ingest_itunes.submit()
-    lastfm_f    = ingest_lastfm.submit()
-    billboard_f = ingest_billboard.submit()
-    librosa_f   = ingest_librosa.submit()
+    logger.info(f"Pipeline started at {started_at.isoformat()}  run_id={run_id}")
 
-    # Wait for all ingestion to finish before dbt
-    for f in [news_f, reddit_f, youtube_f, spotify_f, itunes_f, lastfm_f, billboard_f, librosa_f]:
-        f.result()
+    # Write "running" record immediately so the website can show it in progress
+    _write_run_log({
+        "run_id": run_id,
+        "started_at": started_at.isoformat(),
+        "completed_at": None,
+        "status": "running",
+        "duration_seconds": 0,
+        "modules_completed": [],
+        "tasks_ok": 0,
+        "tasks_total": tasks_total,
+    })
 
-    # ── Layer 2: dbt (first run — raw → staging → marts) ─────────────────────
-    dbt_f = run_dbt.submit()
-    dbt_f.result()
+    def _done(name):
+        nonlocal tasks_ok
+        modules_ok.append(name)
+        tasks_ok += 1
 
-    # ── Layer 3: Emotion NLP ──────────────────────────────────────────────────
-    nlp_f = run_emotion_nlp.submit()
-    nlp_f.result()
+    try:
+        # ── Layer 1: Ingestion (parallel sources) ─────────────────────────────
+        news_f      = ingest_news.submit()
+        reddit_f    = ingest_reddit.submit()
+        youtube_f   = ingest_youtube.submit()
+        spotify_f   = ingest_spotify.submit()
+        itunes_f    = ingest_itunes.submit()
+        lastfm_f    = ingest_lastfm.submit()
+        billboard_f = ingest_billboard.submit()
+        librosa_f   = ingest_librosa.submit()
+        for f, n in [(news_f,"M1-news"),(reddit_f,"M1-reddit"),(youtube_f,"M1-youtube"),
+                     (spotify_f,"M2-spotify"),(itunes_f,"M3-itunes"),(lastfm_f,"M4-lastfm"),
+                     (billboard_f,"M5-billboard"),(librosa_f,"M6-librosa")]:
+            f.result(); _done(n)
 
-    # ── Layer 4: Clustering + Correlation (parallel) ──────────────────────────
-    cluster_f = run_clustering.submit()
-    corr_f    = run_correlation.submit()
-    cluster_f.result()
-    corr_f.result()
+        # ── Layer 2: dbt ──────────────────────────────────────────────────────
+        run_dbt.submit().result(); _done("M7-dbt")
 
-    # ── Layer 5: ML Prediction ────────────────────────────────────────────────
-    ml_f = run_ml_predictions.submit()
-    ml_f.result()
+        # ── Layer 3: Emotion NLP ──────────────────────────────────────────────
+        run_emotion_nlp.submit().result(); _done("M9-emotion")
 
-    # ── Layer 6: dbt second pass (picks up ML output tables) ─────────────────
-    dbt2_f = run_dbt_post_ml.submit()
-    dbt2_f.result()
+        # ── Layer 4: Clustering + Correlation (parallel) ──────────────────────
+        cluster_f = run_clustering.submit()
+        corr_f    = run_correlation.submit()
+        cluster_f.result(); _done("M10-kmeans")
+        corr_f.result();    _done("M11-correlation")
 
-    # ── Layer 7: GenAI ────────────────────────────────────────────────────────
-    pinecone_f = run_pinecone.submit()
-    pinecone_f.result()
-    music_f = run_musicgen.submit()
-    music_f.result()
+        # ── Layer 5: ML Prediction ────────────────────────────────────────────
+        run_ml_predictions.submit().result(); _done("M12-xgboost")
 
-    # ── Layer 8: Export + push ────────────────────────────────────────────────
-    export_f = run_export.submit()
-    export_f.result()
+        # ── Layer 6: dbt second pass ──────────────────────────────────────────
+        run_dbt_post_ml.submit().result(); _done("M12b-dbt-ml")
+
+        # ── Layer 7: GenAI ────────────────────────────────────────────────────
+        run_pinecone.submit().result(); _done("M13a-pinecone")
+        run_musicgen.submit().result(); _done("M13b-musicgen")
+
+        # ── Layer 8: Export ───────────────────────────────────────────────────
+        run_export.submit().result(); _done("M14-export")
+
+        status = "success"
+    except Exception as exc:
+        logger.error(f"Pipeline failed: {exc}")
+        status = "failed"
+
+    duration = int(time.time() - t0)
+    completed_at = datetime.now(timezone.utc)
+
+    # Write final run record (will be picked up by git push below)
+    _write_run_log({
+        "run_id": run_id,
+        "started_at": started_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "status": status,
+        "duration_seconds": duration,
+        "modules_completed": modules_ok,
+        "tasks_ok": tasks_ok,
+        "tasks_total": tasks_total,
+    })
+
     git_push_docs()
-
-    logger.info("Pipeline complete.")
+    logger.info(f"Pipeline {status} — {duration}s  ({tasks_ok}/{tasks_total} tasks)")
 
 
 # ────────────────────────────────────────────────────────────────────────────
