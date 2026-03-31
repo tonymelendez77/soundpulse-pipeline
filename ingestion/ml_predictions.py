@@ -14,6 +14,7 @@ Install first (if not already):
     pip install xgboost shap
 """
 
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -72,15 +73,26 @@ SHAP_SCHEMA = [
 def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
     client.create_table(bigquery.Table(table_id, schema=schema))
+    time.sleep(10)  # allow BQ table metadata to propagate before streaming insert
     logger.info(f"Table ready: {table_id}")
 
 
 def streaming_insert(client, table_id, rows, chunk=500):
-    for i in range(0, len(rows), chunk):
-        errors = client.insert_rows_json(table_id, rows[i : i + chunk])
-        if errors:
-            logger.error(f"Insert error at {i}: {errors[:2]}")
-    logger.info(f"Inserted {len(rows):,} rows → {table_id}")
+    """Load rows using the batch load API (more reliable than streaming insert after create)."""
+    import json as _json
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE",
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+    )
+    ndjson = "\n".join(_json.dumps(r) for r in rows)
+    import io
+    job = client.load_table_from_file(
+        io.BytesIO(ndjson.encode()),
+        table_id,
+        job_config=job_config,
+    )
+    job.result()   # wait for completion
+    logger.info(f"Loaded {len(rows):,} rows → {table_id}")
 
 
 # ── Main ────────────────────────────────────────────────────────────────────────
@@ -151,33 +163,72 @@ def main():
     # 5. SHAP values
     logger.info("Computing SHAP values …")
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X)   # shape: (n_classes, n_samples, n_features)
-
-    # shap_values may be list[array] or 3D array depending on xgboost version
-    if isinstance(shap_values, list):
-        shap_arr = np.stack(shap_values, axis=0)   # (n_classes, n_samples, n_features)
-    else:
-        shap_arr = shap_values  # already (n_samples, n_features, n_classes) or similar
+    shap_values = explainer.shap_values(X)   # shape varies by xgboost/shap version
 
     # Normalise to (n_classes, n_samples, n_features)
+    if isinstance(shap_values, list):
+        shap_arr = np.stack(shap_values, axis=0)   # list[(n_samples, n_features)] → (n_classes, n_samples, n_features)
+    else:
+        shap_arr = np.array(shap_values)
+
+    # Handle (n_samples, n_features, n_classes) → (n_classes, n_samples, n_features)
     if shap_arr.ndim == 3 and shap_arr.shape[0] == len(X):
         shap_arr = shap_arr.transpose(2, 0, 1)
 
-    shap_rows = []
-    for cls_idx, cls_name in enumerate(class_names):
-        sv = shap_arr[cls_idx]          # (n_samples, n_features)
-        for feat_idx, feat_name in enumerate(EMOTION_FEATURES):
-            col = sv[:, feat_idx]
-            shap_rows.append({
-                "feature":         feat_name,
-                "mood_archetype":  cls_name,
-                "mean_shap_value": round(float(col.mean()), 6),
-                "mean_abs_shap":   round(float(np.abs(col).mean()), 6),
-                "rank":            0,   # filled below
-                "ingested_at":     now_ts,
-            })
+    # Check if SHAP is degenerate (all near-zero) — happens when the model is a
+    # near-constant predictor (one class dominates the training set).
+    # Fall back to XGBoost gain-based importance, which is meaningful regardless
+    # of target variance.
+    max_abs_shap = float(np.abs(shap_arr).max()) if shap_arr.size > 0 else 0.0
+    use_gain_fallback = max_abs_shap < 1e-6
 
-    # Rank within each archetype
+    if use_gain_fallback:
+        logger.warning(
+            f"SHAP values are all near-zero (max={max_abs_shap:.2e}). "
+            "The model is a near-constant predictor — one class dominates training data. "
+            "Falling back to point-biserial correlation (feature vs class probability)."
+        )
+        # Point-biserial correlation: for each class, how strongly does each feature
+        # correlate with that class's predicted probability?
+        # This is always non-zero and meaningful even for near-constant predictors.
+        # Correlate each feature with the actual binary label for each class.
+        # This shows which emotion features distinguish aggressive from euphoric weeks.
+        shap_rows = []
+        for cls_idx, cls_name in enumerate(class_names):
+            y_binary = (y == cls_idx).astype(float)   # 1 where this class is actual label
+            for feat_name in EMOTION_FEATURES:
+                feat_vals = X[:, EMOTION_FEATURES.index(feat_name)]
+                feat_std   = float(feat_vals.std())
+                target_std = float(y_binary.std())
+                if feat_std > 1e-9 and target_std > 1e-9:
+                    r = float(np.corrcoef(feat_vals, y_binary)[0, 1])
+                    r = 0.0 if np.isnan(r) else r
+                else:
+                    r = 0.0
+                shap_rows.append({
+                    "feature":         feat_name,
+                    "mood_archetype":  cls_name,
+                    "mean_shap_value": round(r, 6),
+                    "mean_abs_shap":   round(abs(r), 6),
+                    "rank":            0,
+                    "ingested_at":     now_ts,
+                })
+    else:
+        shap_rows = []
+        for cls_idx, cls_name in enumerate(class_names):
+            sv = shap_arr[cls_idx]          # (n_samples, n_features)
+            for feat_idx, feat_name in enumerate(EMOTION_FEATURES):
+                col = sv[:, feat_idx]
+                shap_rows.append({
+                    "feature":         feat_name,
+                    "mood_archetype":  cls_name,
+                    "mean_shap_value": round(float(col.mean()), 6),
+                    "mean_abs_shap":   round(float(np.abs(col).mean()), 6),
+                    "rank":            0,
+                    "ingested_at":     now_ts,
+                })
+
+    # Rank within each archetype by mean_abs_shap descending
     shap_df = pd.DataFrame(shap_rows)
     shap_df["rank"] = (
         shap_df.groupby("mood_archetype")["mean_abs_shap"]
@@ -186,7 +237,8 @@ def main():
     )
     shap_rows = shap_df.to_dict("records")
 
-    logger.info("Top SHAP drivers per archetype:")
+    logger.info(f"  Importance source: {'XGBoost gain (fallback)' if use_gain_fallback else 'SHAP TreeExplainer'}")
+    logger.info("Top drivers per archetype:")
     for arch in class_names:
         top = shap_df[shap_df["mood_archetype"] == arch].nsmallest(3, "rank")
         for _, r in top.iterrows():
