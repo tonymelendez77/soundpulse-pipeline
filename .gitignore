@@ -15,6 +15,8 @@ service-account*.json
 *.jsonl
 *.txt
 data/
+# but keep the static export for GitHub Pages
+!docs/data/
 
 # Generated / cache
 librosa_cache.json
