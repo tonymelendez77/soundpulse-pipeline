@@ -65,6 +65,18 @@ SELECT
     c.mood_archetype AS kmeans_mood_archetype,
     t.dbt_loaded_at
 FROM {{ ref('stg_spotify_tracks') }} t
-LEFT JOIN {{ ref('stg_audio_mood_clusters') }} c
+LEFT JOIN (
+    -- Deduplicate: one row per title+artist, take the most recent week
+    SELECT * EXCEPT (row_num)
+    FROM (
+        SELECT *,
+            ROW_NUMBER() OVER (
+                PARTITION BY LOWER(TRIM(title)), LOWER(TRIM(artist))
+                ORDER BY week_start DESC
+            ) AS row_num
+        FROM {{ ref('stg_audio_mood_clusters') }}
+    )
+    WHERE row_num = 1
+) c
     ON  LOWER(TRIM(t.track_name))  = LOWER(TRIM(c.title))
     AND LOWER(TRIM(t.artist_name)) = LOWER(TRIM(c.artist))

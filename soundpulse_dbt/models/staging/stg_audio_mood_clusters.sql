@@ -6,9 +6,9 @@ cleaned AS (
     SELECT
         title,
         artist,
-        CAST(chart_date AS DATE)     AS chart_date,
-        source                       AS chart_source,
-        chart_rank,
+        CAST(week_start AS DATE)     AS week_start,
+        chart_name                   AS chart_source,
+        rank                         AS chart_rank,
         genre,
         cluster_id,
         mood_archetype,
