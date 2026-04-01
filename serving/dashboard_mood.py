@@ -16,7 +16,7 @@ import requests
 import streamlit as st
 from datetime import datetime
 
-API_BASE = st.secrets["API_BASE"]
+API_BASE = "https://soundpulse-pipeline.onrender.com"
 
 st.set_page_config(
     page_title="SoundPulse — Mood Intelligence",
