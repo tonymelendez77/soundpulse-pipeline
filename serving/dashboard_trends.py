@@ -17,7 +17,7 @@ import requests
 import streamlit as st
 from datetime import datetime
 
-API_BASE = "http://localhost:8000"
+API_BASE ="https://soundpulse-pipeline.onrender.com"
 
 st.set_page_config(
     page_title="SoundPulse — Music Trends",
