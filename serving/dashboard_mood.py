@@ -16,7 +16,7 @@ import requests
 import streamlit as st
 from datetime import datetime
 
-API_BASE = "https://soundpulse-pipeline.onrender.com"
+API_BASE = st.secrets["API_BASE"]
 
 st.set_page_config(
     page_title="SoundPulse — Mood Intelligence",
@@ -45,7 +45,7 @@ with st.sidebar:
     st.caption("Module 14 — Mood Intelligence")
     st.divider()
 
-    if st.button("🔄 Refresh data", use_container_width=True):
+    if st.button("🔄 Refresh data", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
@@ -126,7 +126,7 @@ with tab_corr:
                 )
 
         fig.update_layout(height=480, margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -141,7 +141,7 @@ with tab_corr:
             )
 
         with st.expander("Raw data"):
-            st.dataframe(corr_df.sort_values("pearson_r", ascending=False), use_container_width=True)
+            st.dataframe(corr_df.sort_values("pearson_r", ascending=False), width="stretch")
 
     except Exception as e:
         st.error(f"Could not load correlation data: {e}")
@@ -208,7 +208,7 @@ with tab_timeline:
         )
         fig.update_xaxes(title_text="Week")
         fig.update_layout(height=480, hovermode="x unified", margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     except Exception as e:
         st.error(f"Could not load timeline data: {e}")
@@ -248,10 +248,10 @@ with tab_shap:
             },
         )
         fig.update_layout(height=420, margin=dict(l=0, r=0, t=30, b=0), legend_title="Mood Archetype")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         with st.expander("Raw data"):
-            st.dataframe(shap_df.drop(columns=["feature_label"]), use_container_width=True)
+            st.dataframe(shap_df.drop(columns=["feature_label"]), width="stretch")
 
     except Exception as e:
         st.error(f"Could not load SHAP data: {e}")
@@ -288,7 +288,7 @@ with tab_pred:
 
         st.dataframe(
             display.style.apply(_style_correct, axis=1),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
