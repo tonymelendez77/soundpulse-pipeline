@@ -4,7 +4,6 @@ google-cloud-storage
 python-dotenv
 newsapi-python
 pygooglenews
-mediastack
 pandas
 kaggle
 google-cloud-bigquery
