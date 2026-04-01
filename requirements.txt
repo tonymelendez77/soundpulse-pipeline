@@ -10,3 +10,5 @@ google-cloud-bigquery
 dbt-bigquery
 prefect
 prefect-gcp
+plotly
+streamlit
