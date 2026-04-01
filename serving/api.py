@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
 from google.oauth2 import service_account
+import math
 
 PROJECT = "soundpulse-production"
 DATASET = f"{PROJECT}.dbt_transformed"
@@ -57,9 +58,12 @@ def _run(query: str) -> list[dict]:
     for col in df.select_dtypes(include=["dbdate", "datetime64[ns]", "datetime64[ns, UTC]",
                                           "object"]).columns:
         df[col] = df[col].astype(str)
-    for col in df.select_dtypes(include=["number"]).columns:
-        df[col] = df[col].where(df[col].notna(), other=None)
-    return df.to_dict(orient="records")
+
+
+    return [
+    {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
+    for row in df.to_dict(orient="records")
+]
 
 
 # ── Health ───────────────────────────────────────────────────────────────────
