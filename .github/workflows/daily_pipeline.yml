@@ -22,6 +22,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
       PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       # ── 0. Checkout ──────────────────────────────────────────────────────────
