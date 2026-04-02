@@ -153,7 +153,7 @@ def run_dbt_post_ml():
 
 @task(name="M13a · Pinecone Vector Upsert", retries=2, retry_delay_seconds=60)
 def run_pinecone():
-    _run("ingestion/pinecone_index.py", "M13a-pinecone")
+    _run("ingestion/vector_index.py", "M13a-pinecone")
 
 @task(name="M13b · MusicGen Audio Generation", retries=1, retry_delay_seconds=300)
 def run_musicgen():
