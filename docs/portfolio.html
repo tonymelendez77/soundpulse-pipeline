@@ -23,7 +23,7 @@
     linkedin:   "https://linkedin.com/in/josueme91",  // ← replace
     github:     "https://github.com/tonymelendez77",    // ← replace
 
-    about: `I’m an Ana Engineer and Data Scientist passionate about the intersection of music, technology, and machine learning. I build end-to-end data products that transform real-world signals into actionable intelligence. My work focuses on designing scalable pipelines, uncovering meaningful patterns in complex data, and developing intelligent systems that connect engineering, analytics, and applied AI.`,
+    about: `I’m a Data Engineer and Data Scientist passionate about the intersection of music, technology, and machine learning. I build end-to-end data products that transform real-world signals into actionable intelligence. My work focuses on designing scalable pipelines, uncovering meaningful patterns in complex data, and developing intelligent systems that connect engineering, analytics, and applied AI.`,
 
     /* ── Skills ─────────────────────────────────────────────
        Add or remove items from each array.
@@ -314,34 +314,49 @@ analysts and researchers.`,
     /* ── About ── */
     .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
     .about-text { font-size: 1.02rem; color: var(--muted); line-height: 1.85; }
-    .about-meta { display: flex; flex-direction: column; gap: 1rem; }
-    .meta-item {
-      display: flex; align-items: center; gap: .75rem;
-      font-size: .9rem; color: var(--muted);
-    }
-    .meta-icon {
-      width: 36px; height: 36px; border-radius: 8px;
-      background: var(--surface2); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; flex-shrink: 0;
-    }
-    .lang-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-    .lang-chip {
-      display: flex; align-items: center; gap: .4rem;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 6px; padding: .3rem .75rem; font-size: .82rem;
-    }
-    .lang-level { color: var(--accent2); font-weight: 500; font-size: .78rem; }
 
-    /* ── Hobbies ── */
-    .hobbies-grid { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-    .hobby-chip {
-      display: flex; align-items: center; gap: .4rem;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 6px; padding: .3rem .75rem; font-size: .82rem;
-      color: var(--text); transition: border-color .15s;
+    .about-meta {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 0;
     }
-    .hobby-chip:hover { border-color: var(--accent2); }
+
+    /* info row: location, email */
+    .meta-info-row {
+      display: flex; align-items: center; gap: .6rem;
+      font-size: .88rem; color: var(--muted);
+      padding: .6rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .meta-info-row:last-of-type { border-bottom: none; }
+    .meta-info-icon { font-size: .95rem; width: 1.2rem; text-align: center; flex-shrink: 0; }
+
+    /* sub-section inside card */
+    .meta-block {
+      padding: 1rem 0 .75rem;
+      border-top: 1px solid var(--border);
+    }
+    .meta-block:first-of-type { border-top: none; padding-top: .75rem; }
+    .meta-block-label {
+      font-family: var(--mono); font-size: .7rem;
+      color: var(--accent2); letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: .65rem;
+    }
+
+    /* chips shared style */
+    .chip-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .chip {
+      font-size: .78rem; padding: .2rem .6rem;
+      border-radius: 5px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted);
+      white-space: nowrap;
+    }
+    .chip-lang { color: var(--text); }
+    .chip-lang span { color: var(--accent2); font-weight: 600; margin-left: .3rem; }
+    .chip-hobby { color: var(--text); }
+    .chip:hover { border-color: var(--accent2); color: var(--accent2); transition: all .15s; }
 
     /* ── Skills ── */
     #skills { background: var(--surface); border-radius: var(--radius); padding: 4rem 3rem; max-width: 1080px; margin: 0 auto; }
@@ -515,26 +530,29 @@ analysts and researchers.`,
 
   const meta = document.getElementById("about-meta");
   meta.innerHTML = `
-    <div class="meta-item"><div class="meta-icon">📍</div>${PROFILE.location}</div>
-    <div class="meta-item"><div class="meta-icon">✉️</div><a href="mailto:${PROFILE.email}" style="color:var(--accent2);text-decoration:none">${PROFILE.email}</a></div>
-    <div class="meta-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
-      <div style="display:flex;gap:.5rem;align-items:center"><div class="meta-icon">🌐</div> Languages</div>
-      <div class="lang-chips">${
+    <div class="meta-info-row"><span class="meta-info-icon">📍</span>${PROFILE.location}</div>
+    <div class="meta-info-row"><span class="meta-info-icon">✉️</span><a href="mailto:${PROFILE.email}" style="color:var(--accent2);text-decoration:none">${PROFILE.email}</a></div>
+
+    <div class="meta-block">
+      <div class="meta-block-label">Languages</div>
+      <div class="chip-row">${
         PROFILE.languages.map(l =>
-          `<div class="lang-chip">${l.name} <span class="lang-level">${l.level}</span></div>`
+          `<span class="chip chip-lang">${l.name}<span>${l.level}</span></span>`
         ).join("")
       }</div>
     </div>
-    <div class="meta-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
-      <div style="display:flex;gap:.5rem;align-items:center"><div class="meta-icon">📈</div> Visualization & Reporting</div>
-      <div class="hobbies-grid">${
-        PROFILE.vizTools.map(t => `<div class="hobby-chip">${t}</div>`).join("")
+
+    <div class="meta-block">
+      <div class="meta-block-label">Visualization & Reporting</div>
+      <div class="chip-row">${
+        PROFILE.vizTools.map(t => `<span class="chip">${t}</span>`).join("")
       }</div>
     </div>
-    <div class="meta-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
-      <div style="display:flex;gap:.5rem;align-items:center"><div class="meta-icon">🎯</div> Hobbies</div>
-      <div class="hobbies-grid">${
-        PROFILE.hobbies.map(h => `<div class="hobby-chip">${h.icon} ${h.label}</div>`).join("")
+
+    <div class="meta-block">
+      <div class="meta-block-label">Hobbies & Interests</div>
+      <div class="chip-row">${
+        PROFILE.hobbies.map(h => `<span class="chip chip-hobby">${h.icon} ${h.label}</span>`).join("")
       }</div>
     </div>`;
 
