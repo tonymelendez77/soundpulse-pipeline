@@ -154,6 +154,11 @@
     .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media (max-width:700px) { .chart-grid { grid-template-columns:1fr; } }
 
+    /* Force all Plotly charts to fill their card */
+    .js-plotly-plot, .js-plotly-plot .plot-container { width:100% !important; }
+    .js-plotly-plot .svg-container { width:100% !important; }
+    .js-plotly-plot svg { width:100% !important; }
+
     /* ── METRICS ── */
     .metrics { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:32px; }
     .metric {
@@ -1917,6 +1922,8 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
     initProcessSection() .catch(e => console.warn('Process section:', e)),
     initRunHistory()     .catch(e => console.warn('Run history:', e)),
   ]);
+  // Force all Plotly charts to fill their containers after initial render
+  window.dispatchEvent(new Event('resize'));
 })();
 </script>
 </body>
