@@ -242,6 +242,23 @@
       display:none; padding:48px 24px; text-align:center;
       color:var(--muted); font-size:.88rem; line-height:1.9;
     }
+    .dash-open-btn {
+      display:none;
+      margin-top:12px;
+      width:100%;
+      padding:14px;
+      background:rgba(88,166,255,.09);
+      border:1px solid rgba(88,166,255,.22);
+      border-radius:10px;
+      color:var(--accent);
+      font-size:.88rem; font-weight:600;
+      text-align:center; text-decoration:none;
+      cursor:pointer;
+    }
+    @media (max-width:640px) {
+      .dash-embed { height:500px; }
+      .dash-open-btn { display:block; }
+    }
 
     /* ── PIPELINE RUN LOG ── */
     .run-row {
@@ -1199,6 +1216,7 @@
         <div>Start it with: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#79c0ff;">streamlit run serving/dashboard_mood.py --server.port 8501</code><br>then refresh this page.</div>
       </div>
     </div>
+    <a class="dash-open-btn" href="https://soundpulse-mood.streamlit.app" target="_blank" rel="noopener">Open Mood Intelligence Dashboard ↗</a>
   </div>
 
   <!-- Dashboard 2 -->
@@ -1222,6 +1240,7 @@
         <div>Start it with: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#79c0ff;">streamlit run serving/dashboard_trends.py --server.port 8502</code><br>then refresh this page.</div>
       </div>
     </div>
+    <a class="dash-open-btn" href="https://soundpulse-trends.streamlit.app" target="_blank" rel="noopener">Open Music Trends Dashboard ↗</a>
   </div>
 </section>
 
@@ -1924,12 +1943,12 @@ function probeDashboard(port, frameId, fallbackId, statusId) {
   const fallback = document.getElementById(fallbackId);
   const status   = document.getElementById(statusId);
 
-  // Set a 3-second timeout — if the iframe doesn't load, show fallback
+  // 90-second timeout — Streamlit Cloud apps can take ~60s to wake from sleep
   const timer = setTimeout(() => {
     if (frame) frame.style.display = 'none';
     if (fallback) fallback.style.display = 'block';
     if (status) { status.textContent = '⚫ Offline — start locally to interact'; status.style.color = 'var(--muted)'; }
-  }, 5000);
+  }, 90000);
 
   if (frame) {
     frame.addEventListener('load', () => {
