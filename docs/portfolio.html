@@ -17,8 +17,8 @@
 
     name:       "Oscar J. Melendez",
     title:      "Data Engineer & Data Scientist",
-    tagline:    "Building data pipelines that turn raw signals into insight.",
-    location:   "United States",
+    tagline:    "Designing cloud-native pipelines that transform raw signals into production intelligence.",
+    location:   "Guatemala",
     email:      "your.email@example.com",        // ← replace
     linkedin:   "https://linkedin.com/in/yourhandle",  // ← replace
     github:     "https://github.com/oscarjosuemelendez",
@@ -34,11 +34,13 @@ search with vector databases, and predictive modeling with XGBoost and deep NLP.
        Format: "Label"  — just a string in quotes, comma-separated.
     ──────────────────────────────────────────────────────── */
     skills: {
-      "Data Engineering":  ["Python", "SQL", "dbt", "Prefect", "GCP", "BigQuery", "GCS", "GitHub Actions"],
-      "Machine Learning":  ["XGBoost", "SHAP", "Scikit-learn", "DistilRoBERTa", "Transformers", "KMeans"],
-      "Data & APIs":       ["Spotify API", "Billboard", "iTunes", "Guardian API", "Reddit API", "YouTube API", "Last.fm"],
+      "Cloud Platforms":   ["GCP", "AWS", "Azure", "BigQuery", "Snowflake", "Microsoft Fabric", "Databricks", "GCS", "S3", "Azure Data Lake"],
+      "Data Engineering":  ["Python", "SQL", "dbt", "Apache Spark", "Kafka", "Pandas", "Polars", "GitHub Actions"],
+      "Orchestration":     ["Prefect", "Apache Airflow", "Dagster", "Prefect Cloud"],
+      "Machine Learning":  ["XGBoost", "SHAP", "Scikit-learn", "DistilRoBERTa", "Transformers", "KMeans", "MLflow"],
+      "Data & APIs":       ["Spotify API", "OpenAI API", "Guardian API", "Reddit API", "YouTube API", "Alpha Vantage", "Last.fm", "Billboard", "iTunes"],
       "Audio & NLP":       ["Librosa", "Audio Feature Extraction", "Emotion Classification", "Sentiment Analysis"],
-      "Infrastructure":    ["Docker", "GitHub Actions CI/CD", "Prefect Cloud", "Pinecone", "Streamlit"],
+      "Infrastructure":    ["Docker", "Kubernetes", "GitHub Actions CI/CD", "Pinecone", "Streamlit", "Vector DBs"],
     },
 
     /* ── Languages ─────────────────────────────────────────
@@ -190,9 +192,7 @@ analysts and researchers.`,
       font-size: clamp(2rem, 5vw, 3.2rem);
       font-weight: 700; line-height: 1.1;
       letter-spacing: -.02em;
-      background: linear-gradient(135deg, #fff 30%, var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #ffffff;
       margin-bottom: .75rem;
     }
     .hero-title {
@@ -256,14 +256,19 @@ analysts and researchers.`,
       position: relative; z-index: 1;
     }
     .hero-stats {
-      display: flex; gap: 2rem; margin-top: 1.75rem;
+      display: flex; gap: 0; margin-top: 1.75rem;
+      border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; width: fit-content;
     }
-    .hero-stat { display: flex; flex-direction: column; gap: .15rem; }
+    .hero-stat {
+      display: flex; flex-direction: column; gap: .15rem;
+      padding: .75rem 1.25rem;
+      border-right: 1px solid var(--border);
+    }
+    .hero-stat:last-child { border-right: none; }
     .hero-stat-num {
-      font-size: 1.4rem; font-weight: 700;
-      background: linear-gradient(135deg, #fff, var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-size: 1rem; font-weight: 700;
+      color: #ffffff;
     }
     .hero-stat-label { font-size: .75rem; color: var(--muted); }
 
@@ -413,9 +418,9 @@ analysts and researchers.`,
         <a class="btn btn-outline" id="hero-linkedin" href="#" target="_blank" rel="noopener">LinkedIn ↗</a>
       </div>
       <div class="hero-stats">
-        <div class="hero-stat"><span class="hero-stat-num">8+</span><span class="hero-stat-label">Data Sources</span></div>
-        <div class="hero-stat"><span class="hero-stat-num">11+</span><span class="hero-stat-label">Pipeline Modules</span></div>
-        <div class="hero-stat"><span class="hero-stat-num">GCP</span><span class="hero-stat-label">Cloud Platform</span></div>
+        <div class="hero-stat"><span class="hero-stat-num">Multi-Cloud</span><span class="hero-stat-label">GCP · AWS · Azure</span></div>
+        <div class="hero-stat"><span class="hero-stat-num">End-to-End</span><span class="hero-stat-label">Pipeline Architect</span></div>
+        <div class="hero-stat"><span class="hero-stat-num">ML + NLP</span><span class="hero-stat-label">Production Models</span></div>
       </div>
     </div>
     <div class="hero-photo-wrap">
