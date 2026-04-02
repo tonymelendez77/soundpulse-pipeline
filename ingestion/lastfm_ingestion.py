@@ -141,4 +141,5 @@ if __name__ == "__main__":
     df = run_lastfm_ingestion()
     save_to_local(df)
     print(f"\nFetched {len(df)} tracks")
-    print(df[["country", "chart_rank", "artist", "title"]].head(10))
+    if not df.empty:
+        print(df[["country", "chart_rank", "artist", "title"]].head(10))
