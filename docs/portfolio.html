@@ -20,28 +20,107 @@
     tagline:    "Designing cloud-native pipelines that transform raw signals into production intelligence.",
     location:   "Guatemala",
     email:      "your.email@example.com",        // ← replace
-    linkedin:   "https://linkedin.com/in/yourhandle",  // ← replace
-    github:     "https://github.com/oscarjosuemelendez",
+    linkedin:   "https://linkedin.com/in/josueme91",  // ← replace
+    github:     "https://github.com/tonymelendez77",    // ← replace
 
-    about: `I'm a data engineer and scientist passionate about the intersection
-of culture, technology, and machine learning. I design end-to-end pipelines
-that ingest real-world signals, model patterns, and deliver actionable intelligence.
-My work spans cloud infrastructure on GCP, orchestration with Prefect, semantic
-search with vector databases, and predictive modeling with XGBoost and deep NLP.`,
+    about: `I’m an Ana Engineer and Data Scientist passionate about the intersection of music, technology, and machine learning. I build end-to-end data products that transform real-world signals into actionable intelligence. My work focuses on designing scalable pipelines, uncovering meaningful patterns in complex data, and developing intelligent systems that connect engineering, analytics, and applied AI.`,
 
     /* ── Skills ─────────────────────────────────────────────
        Add or remove items from each array.
        Format: "Label"  — just a string in quotes, comma-separated.
     ──────────────────────────────────────────────────────── */
     skills: {
-      "Cloud Platforms":   ["GCP", "AWS", "Azure", "BigQuery", "Snowflake", "Microsoft Fabric", "Databricks", "GCS", "S3", "Azure Data Lake"],
-      "Data Engineering":  ["Python", "SQL", "dbt", "Apache Spark", "Kafka", "Pandas", "Polars", "GitHub Actions"],
-      "Orchestration":     ["Prefect", "Apache Airflow", "Dagster", "Prefect Cloud"],
-      "Machine Learning":  ["XGBoost", "SHAP", "Scikit-learn", "DistilRoBERTa", "Transformers", "KMeans", "MLflow"],
-      "Data & APIs":       ["Spotify API", "OpenAI API", "Guardian API", "Reddit API", "YouTube API", "Alpha Vantage", "Last.fm", "Billboard", "iTunes"],
-      "Audio & NLP":       ["Librosa", "Audio Feature Extraction", "Emotion Classification", "Sentiment Analysis"],
-      "Infrastructure":    ["Docker", "Kubernetes", "GitHub Actions CI/CD", "Pinecone", "Streamlit", "Vector DBs"],
-    },
+  "Languages": [
+    "Python", "SQL"
+  ],
+
+  "Cloud & Data Platforms": [
+    "Google Cloud Platform (GCP)",
+    "Amazon Web Services (AWS)",
+    "BigQuery",
+    "Snowflake",
+    "Databricks",
+    "Microsoft Fabric",
+    "Google Cloud Storage (GCS)",
+    "Amazon S3",
+    "Azure Data Lake"
+  ],
+
+  "Data Engineering & ELT": [
+    "dbt",
+    "Apache Spark",
+    "Kafka",
+    "Pandas",
+    "Polars",
+    "Data Pipelines",
+    "ETL/ELT Development",
+    "Data Modeling",
+    "Batch Processing",
+    "Streaming Pipelines"
+  ],
+
+  "Orchestration & Workflow Automation": [
+    "Prefect",
+    "Prefect Cloud",
+    "Apache Airflow",
+    "Dagster",
+    "Workflow Scheduling",
+    "Pipeline Monitoring"
+  ],
+
+  "Machine Learning & Applied AI": [
+    "Scikit-learn",
+    "XGBoost",
+    "SHAP",
+    "Transformers",
+    "DistilRoBERTa",
+    "KMeans",
+    "MLflow",
+    "Feature Engineering",
+    "Model Evaluation"
+  ],
+
+  "APIs & Data Sources": [
+    "OpenAI API",
+    "Spotify API",
+    "YouTube API",
+    "Reddit API",
+    "Guardian API",
+    "Alpha Vantage",
+    "Last.fm",
+    "Billboard",
+    "iTunes API"
+  ],
+
+  "Audio, NLP & Analytics": [
+    "Librosa",
+    "Audio Feature Extraction",
+    "Natural Language Processing (NLP)",
+    "Sentiment Analysis",
+    "Emotion Classification",
+    "Text Embeddings"
+  ],
+
+  "DevOps & Deployment": [
+    "Docker",
+    "Kubernetes",
+    "Git",
+    "GitHub Actions",
+    "CI/CD",
+    "Streamlit",
+    "Pinecone",
+    "Vector Databases"
+  ],
+
+  "Data Visualization & Reporting": [
+    "Tableau",
+    "Power BI",
+    "Looker Studio",
+    "Streamlit",
+    "Plotly",
+    "Matplotlib"
+  ]
+},
 
     /* ── Languages ─────────────────────────────────────────
        level options: "Native", "Fluent", "Professional", "Conversational"
@@ -50,6 +129,19 @@ search with vector databases, and predictive modeling with XGBoost and deep NLP.
       { name: "English", level: "Fluent"  },
       { name: "Spanish", level: "Native"  },
     ],
+
+    /* ── Hobbies ────────────────────────────────────────── */
+    hobbies: [
+      { icon: "🎵", label: "Music & Audio Analysis" },
+      { icon: "⚽", label: "Soccer" },
+      { icon: "📊", label: "Data Visualization" },
+      { icon: "✈️", label: "Traveling" },
+      { icon: "📚", label: "Tech & AI Research" },
+      { icon: "🎮", label: "Gaming" },
+    ],
+
+    /* ── Visualization Tools ─────────────────────────── */
+    vizTools: ["Tableau", "Power BI", "Looker Studio", "Streamlit", "Matplotlib", "Plotly"],
 
     /* ── Projects ───────────────────────────────────────────
        Add as many projects as you want.
@@ -311,6 +403,16 @@ analysts and researchers.`,
     }
     .lang-level { color: var(--accent2); font-weight: 500; font-size: .78rem; }
 
+    /* ── Hobbies ── */
+    .hobbies-grid { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+    .hobby-chip {
+      display: flex; align-items: center; gap: .4rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: .3rem .75rem; font-size: .82rem;
+      color: var(--text); transition: border-color .15s;
+    }
+    .hobby-chip:hover { border-color: var(--accent2); }
+
     /* ── Skills ── */
     #skills { background: var(--surface); border-radius: var(--radius); padding: 4rem 3rem; max-width: 1080px; margin: 0 auto; }
     .skills-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
@@ -491,6 +593,18 @@ analysts and researchers.`,
         PROFILE.languages.map(l =>
           `<div class="lang-chip">${l.name} <span class="lang-level">${l.level}</span></div>`
         ).join("")
+      }</div>
+    </div>
+    <div class="meta-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
+      <div style="display:flex;gap:.5rem;align-items:center"><div class="meta-icon">📈</div> Visualization & Reporting</div>
+      <div class="hobbies-grid">${
+        PROFILE.vizTools.map(t => `<div class="hobby-chip">${t}</div>`).join("")
+      }</div>
+    </div>
+    <div class="meta-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
+      <div style="display:flex;gap:.5rem;align-items:center"><div class="meta-icon">🎯</div> Hobbies</div>
+      <div class="hobbies-grid">${
+        PROFILE.hobbies.map(h => `<div class="hobby-chip">${h.icon} ${h.label}</div>`).join("")
       }</div>
     </div>`;
 
