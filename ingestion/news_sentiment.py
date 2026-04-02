@@ -130,26 +130,114 @@ def run_inference(clf, texts: list[str]) -> list[dict]:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
+def get_processed_dates(client: bigquery.Client) -> set:
+    """Return the set of dates already scored in news_sentiment."""
+    try:
+        rows = client.query(
+            f"SELECT DISTINCT CAST(date AS STRING) AS date FROM `{DST_TABLE}`"
+        ).result()
+        return {row.date for row in rows}
+    except Exception:
+        return set()
+
+
+def _write_weekly_aggregates(client: bigquery.Client, df: pd.DataFrame, now_ts: str):
+    """Recompute news_sentiment_weekly from the full scored dataset and replace the table."""
+    logger.info("Building weekly aggregates …")
+    df = df.copy()
+    df["date_dt"]    = pd.to_datetime(df["date"])
+    df["week_start"] = (df["date_dt"] - pd.to_timedelta(df["date_dt"].dt.dayofweek, unit="d")).dt.date.astype(str)
+
+    agg = (
+        df.groupby(["week_start", "topic"])
+        .agg(
+            article_count =("title",         "count"),
+            avg_fear      =("fear_score",     "mean"),
+            avg_anger     =("anger_score",    "mean"),
+            avg_joy       =("joy_score",      "mean"),
+            avg_sadness   =("sadness_score",  "mean"),
+            avg_surprise  =("surprise_score", "mean"),
+            avg_disgust   =("disgust_score",  "mean"),
+            avg_neutral   =("neutral_score",  "mean"),
+        )
+        .reset_index()
+    )
+
+    agg["anxiety_index"]    = (agg["avg_fear"]  + agg["avg_sadness"]).round(6)
+    agg["tension_index"]    = (agg["avg_anger"] + agg["avg_disgust"]).round(6)
+    agg["positivity_index"] = (agg["avg_joy"]   + agg["avg_surprise"]).round(6)
+
+    avg_cols = {col: col.replace("avg_", "") for col in
+                ["avg_fear","avg_anger","avg_joy","avg_sadness","avg_surprise","avg_disgust","avg_neutral"]}
+    agg["dominant_emotion"] = agg[list(avg_cols.keys())].idxmax(axis=1).map(avg_cols)
+
+    agg_rows = [
+        {
+            "week_start":       row["week_start"],
+            "topic":            row["topic"],
+            "article_count":    int(row["article_count"]),
+            "dominant_emotion": row["dominant_emotion"],
+            "avg_fear":         round(float(row["avg_fear"]),         6),
+            "avg_anger":        round(float(row["avg_anger"]),        6),
+            "avg_joy":          round(float(row["avg_joy"]),          6),
+            "avg_sadness":      round(float(row["avg_sadness"]),      6),
+            "avg_surprise":     round(float(row["avg_surprise"]),     6),
+            "avg_disgust":      round(float(row["avg_disgust"]),      6),
+            "avg_neutral":      round(float(row["avg_neutral"]),      6),
+            "anxiety_index":    round(float(row["anxiety_index"]),    6),
+            "tension_index":    round(float(row["tension_index"]),    6),
+            "positivity_index": round(float(row["positivity_index"]), 6),
+            "ingested_at":      now_ts,
+        }
+        for _, row in agg.iterrows()
+    ]
+
+    ensure_table(client, AGG_TABLE, AGG_SCHEMA, drop_first=True)
+    logger.info(f"Writing {len(agg_rows):,} weekly rows to {AGG_TABLE} …")
+    streaming_insert(client, AGG_TABLE, agg_rows)
+    logger.info("news_sentiment_weekly written.")
+
+
 def main():
     client = bigquery.Client(project=PROJECT)
     now_ts = datetime.now(timezone.utc).isoformat()
 
-    # 1. Load news_historical
+    # 1. Find dates not yet scored
+    processed = get_processed_dates(client)
+    logger.info(f"Already scored dates: {len(processed)}")
+
+    exclusion = ""
+    if processed:
+        date_list = ", ".join(f"'{d}'" for d in sorted(processed))
+        exclusion = f"AND CAST(date AS STRING) NOT IN ({date_list})"
+
+    # 2. Load only new articles from news_historical
     logger.info("Reading news_historical …")
     query = f"""
         SELECT date, topic, title, description
         FROM `{SRC_TABLE}`
-        WHERE title IS NOT NULL
+        WHERE title IS NOT NULL {exclusion}
         ORDER BY date, topic
     """
     df = client.query(query).to_dataframe()
-    logger.info(f"Loaded {len(df):,} articles")
+    logger.info(f"Loaded {len(df):,} new articles to score")
 
-    # 2. Prepare input texts
+    if df.empty:
+        logger.info("No new articles — skipping inference.")
+        # Still recompute weekly aggregates in case upstream data changed
+        df_all = client.query(
+            f"SELECT date, topic, title, fear_score, anger_score, joy_score, "
+            f"sadness_score, surprise_score, disgust_score, neutral_score "
+            f"FROM `{DST_TABLE}`"
+        ).to_dataframe()
+        _write_weekly_aggregates(client, df_all, now_ts)
+        return
+
+    # 3. Prepare input texts
     df["_text"] = df.apply(build_text, axis=1)
     texts = df["_text"].tolist()
 
-    # 3. Load model + run inference in batches
+    # 4. Load model + run inference in batches
     clf = load_model()
     all_scores: list[dict] = []
     n_batches = math.ceil(len(texts) / BATCH_SIZE)
@@ -164,16 +252,13 @@ def main():
 
     logger.info("Inference complete.")
 
-    # 4. Build output rows
+    # 5. Build output rows
     score_df = pd.DataFrame(all_scores)
     df = df.reset_index(drop=True)
     df = pd.concat([df, score_df], axis=1)
 
-    # Primary emotion = label with highest score
     score_cols = [f"{lbl}_score" for lbl in EMOTION_LABELS]
     df["emotion"] = df[score_cols].idxmax(axis=1).str.replace("_score", "", regex=False)
-
-    # Ensure date is a string (DATE-compatible)
     df["date"] = pd.to_datetime(df["date"]).dt.date.astype(str)
 
     rows = [
@@ -194,73 +279,26 @@ def main():
         for _, row in df.iterrows()
     ]
 
-    # 5. Write news_sentiment
-    ensure_table(client, DST_TABLE, DST_SCHEMA)
-    logger.info(f"Writing {len(rows):,} rows to {DST_TABLE} …")
+    # 6. Append new rows to news_sentiment (do NOT drop the table)
+    ensure_table(client, DST_TABLE, DST_SCHEMA, drop_first=False)
+    logger.info(f"Appending {len(rows):,} rows to {DST_TABLE} …")
     streaming_insert(client, DST_TABLE, rows)
-    logger.info("news_sentiment written.")
+    logger.info("news_sentiment appended.")
 
-    # 6. Weekly aggregation (in-memory, then write)
-    logger.info("Building weekly aggregates …")
-    df["date_dt"] = pd.to_datetime(df["date"])
-    df["week_start"] = (df["date_dt"] - pd.to_timedelta(df["date_dt"].dt.dayofweek, unit="d")).dt.date.astype(str)
+    # 7. Recompute weekly aggregates from the full news_sentiment table
+    logger.info("Reading full news_sentiment for weekly aggregation …")
+    df_all = client.query(
+        f"SELECT date, topic, title, fear_score, anger_score, joy_score, "
+        f"sadness_score, surprise_score, disgust_score, neutral_score "
+        f"FROM `{DST_TABLE}`"
+    ).to_dataframe()
+    _write_weekly_aggregates(client, df_all, now_ts)
 
-    agg = (
-        df.groupby(["week_start", "topic"])
-        .agg(
-            article_count =("title", "count"),
-            avg_fear      =("fear_score",     "mean"),
-            avg_anger     =("anger_score",    "mean"),
-            avg_joy       =("joy_score",      "mean"),
-            avg_sadness   =("sadness_score",  "mean"),
-            avg_surprise  =("surprise_score", "mean"),
-            avg_disgust   =("disgust_score",  "mean"),
-            avg_neutral   =("neutral_score",  "mean"),
-        )
-        .reset_index()
-    )
-
-    agg["anxiety_index"]    = (agg["avg_fear"]    + agg["avg_sadness"]).round(6)
-    agg["tension_index"]    = (agg["avg_anger"]   + agg["avg_disgust"]).round(6)
-    agg["positivity_index"] = (agg["avg_joy"]     + agg["avg_surprise"]).round(6)
-
-    # Dominant emotion per week+topic = highest avg score column
-    avg_cols = {col: col.replace("avg_", "") for col in
-                ["avg_fear","avg_anger","avg_joy","avg_sadness","avg_surprise","avg_disgust","avg_neutral"]}
-    agg["dominant_emotion"] = agg[list(avg_cols.keys())].idxmax(axis=1).map(avg_cols)
-
-    agg_rows = [
-        {
-            "week_start":       row["week_start"],
-            "topic":            row["topic"],
-            "article_count":    int(row["article_count"]),
-            "dominant_emotion": row["dominant_emotion"],
-            "avg_fear":         round(float(row["avg_fear"]),    6),
-            "avg_anger":        round(float(row["avg_anger"]),   6),
-            "avg_joy":          round(float(row["avg_joy"]),     6),
-            "avg_sadness":      round(float(row["avg_sadness"]), 6),
-            "avg_surprise":     round(float(row["avg_surprise"]),6),
-            "avg_disgust":      round(float(row["avg_disgust"]), 6),
-            "avg_neutral":      round(float(row["avg_neutral"]), 6),
-            "anxiety_index":    round(float(row["anxiety_index"]),    6),
-            "tension_index":    round(float(row["tension_index"]),    6),
-            "positivity_index": round(float(row["positivity_index"]), 6),
-            "ingested_at":      now_ts,
-        }
-        for _, row in agg.iterrows()
-    ]
-
-    ensure_table(client, AGG_TABLE, AGG_SCHEMA)
-    logger.info(f"Writing {len(agg_rows):,} weekly rows to {AGG_TABLE} …")
-    streaming_insert(client, AGG_TABLE, agg_rows)
-    logger.info("news_sentiment_weekly written.")
-
-    # 7. Summary
+    # 8. Summary
     logger.info("─── LAYER 1 COMPLETE ───")
-    logger.info(f"  Articles classified : {len(rows):,}")
-    logger.info(f"  Weekly aggregates   : {len(agg_rows):,} (week × topic combos)")
+    logger.info(f"  New articles classified : {len(rows):,}")
     emotion_counts = df["emotion"].value_counts().to_dict()
-    logger.info(f"  Emotion distribution: {emotion_counts}")
+    logger.info(f"  Emotion distribution    : {emotion_counts}")
 
 
 if __name__ == "__main__":
