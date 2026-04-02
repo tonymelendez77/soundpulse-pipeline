@@ -1662,7 +1662,7 @@ async function initTrends() {
     yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder, automargin: true },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
     legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.18, font:{size:10}, tracegroupgap:2 },
-    margin: { l: 40, r: 80, t: 20, b: 80 + legendRows * 20 },
+    margin: { l: 30, r: 80, t: 20, b: 80 + legendRows * 20 },
     hovermode: 'closest',
   }, CONFIG);
 }
@@ -1694,7 +1694,7 @@ async function initSentiment() {
     yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Anxiety Index' },
     xaxis:  { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
     legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.18, font:{size:10} },
-    margin: { l: 55, r: 80, t: 20, b: 90 },
+    margin: { l: 30, r: 80, t: 20, b: 90 },
     hovermode: 'x unified',
   }, CONFIG);
 
@@ -1728,7 +1728,7 @@ async function initSentiment() {
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: '', tickangle: -30, automargin: true },
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Weeks' },
     legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.22, font:{size:11} },
-    margin: { l: 40, r: 80, t: 20, b: 120 },
+    margin: { l: 30, r: 80, t: 20, b: 120 },
   }, CONFIG);
 }
 
