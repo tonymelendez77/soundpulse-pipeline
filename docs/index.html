@@ -1379,7 +1379,7 @@ async function initPrediction() {
         xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true, automargin: true },
         yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
         legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
-        margin: { l: 0, r: 60, t: 50, b: 50 },
+        margin: { l: 85, r: 60, t: 50, b: 50 },
       }, CONFIG);
     }
   } else {
@@ -1404,7 +1404,7 @@ async function initPrediction() {
       xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true, automargin: true },
       yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
       legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
-      margin: { l: 130, r: 20, t: 50, b: 50 },
+      margin: { l: 85, r: 60, t: 50, b: 50 },
     }, CONFIG);
   }
 
