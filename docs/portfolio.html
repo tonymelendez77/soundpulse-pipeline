@@ -16,19 +16,15 @@
   const PROFILE = {
 
     name:       "Oscar J. Melendez",
-    title:      "Data Engineer & Data Scientist",
+    title:      "Data & Analytics Engineer with experience across data engineering, analytics, business intelligence, and machine learning.",
     tagline:    "Designing cloud-native pipelines that transform raw signals into production intelligence.",
     location:   "Guatemala",
     email:      "oscarj.melendezo@gmail.com",        // ← replace
     linkedin:   "https://linkedin.com/in/josueme91",  // ← replace
     github:     "https://github.com/tonymelendez77",    // ← replace
 
-    about: `I’m a Data Engineer and Data Scientist passionate about the intersection of music, technology, and machine learning. I build end-to-end data products that transform real-world signals into actionable intelligence. My work focuses on designing scalable pipelines, uncovering meaningful patterns in complex data, and developing intelligent systems that connect engineering, analytics, and applied AI.`,
+    about: `I’m a Data & Analytics Engineer passionate about turning complex data into clear insight and intelligent products. My work spans data engineering, analytics, business intelligence, and applied machine learning, with a focus on building end-to-end systems that transform real-world signals into decisions, discovery, and measurable impact. I’m especially drawn to projects where data, technology, and music intersect, combining technical depth with curiosity, creativity, and a product mindset.`,
 
-    /* ── Skills ─────────────────────────────────────────────
-       Add or remove items from each array.
-       Format: "Label"  — just a string in quotes, comma-separated.
-    ──────────────────────────────────────────────────────── */
     skills: {
   "Core": [
     "Python", "SQL", "dbt", "Apache Spark", "Prefect", "BigQuery", "Snowflake", "Docker", "GitHub Actions"
@@ -76,11 +72,6 @@
     /* ── Visualization Tools ─────────────────────────── */
     vizTools: ["Tableau", "Power BI", "Looker Studio", "Streamlit", "Matplotlib", "Plotly"],
 
-    /* ── Projects ───────────────────────────────────────────
-       Add as many projects as you want.
-       badge: short label shown on the card (e.g. "Live", "Beta", "Research")
-       tags:  array of tech keywords shown at the bottom of the card
-    ──────────────────────────────────────────────────────── */
     projects: [
       {
         name:        "SoundPulse — PulseIQ",
@@ -102,18 +93,17 @@ week's dominant mood archetype using XGBoost + SHAP.`,
       {
         name:        "PharmaWatch",
         badge:       "In Progress",
-        description: `A pharmaceutical intelligence platform that monitors drug pricing,
-FDA approvals, and clinical trial data to surface market signals for healthcare
-analysts and researchers.`,
+        description: `A drug risk intelligence platform that ingests adverse event reports, medical research, and patient sentiment from 4 public APIs. Processes FDA FAERS data with Scala + Spark, scores personalized drug risk with LightGBM + SHAP, and delivers AI-powered explanations via a RAG pipeline built on LangChain and Groq (Llama 3).`,
         highlights: [
-          "Real-time FDA and clinical trial ingestion",
-          "Drug pricing trend analysis",
-          "Semantic search with vector embeddings",
-          "Automated regulatory alert system",
+          "4 sources: PubMed, FDA FAERS, Reddit, DrugBank",
+          "Scala + Spark on Databricks → Snowflake → BigQuery (config-flag migration)",
+          "LightGBM risk scoring + SHAP explainability tracked via MLflow",
+          "RAG pipeline: ChromaDB vectors + LangChain + Groq Llama 3",
         ],
-        link:  "#",                   // ← replace with your live URL when ready
-        label: "Coming Soon",
-        tags:  ["Python", "Pinecone", "BigQuery", "Streamlit", "GCP"],
+        link:     "#",
+        label:    "Coming Soon",
+        archLink: "pharmawatch-architecture.html",
+        tags:  ["Python", "Scala", "Spark", "BigQuery", "Snowflake", "LightGBM", "LangChain", "Groq", "dbt", "Airflow"],
       },
     ],
 
@@ -298,7 +288,8 @@ analysts and researchers.`,
     .hero-stat-label { font-size: .75rem; color: var(--muted); }
 
     /* ── Sections ── */
-    section { padding: 6rem 2rem; max-width: 1080px; margin: 0 auto; }
+    section { padding: 4rem 2rem; max-width: 1080px; margin: 0 auto; }
+    #about { padding: 3rem 2rem; }
     .section-label {
       font-family: var(--mono); font-size: .78rem;
       color: var(--accent2); letter-spacing: .1em; text-transform: uppercase;
@@ -483,11 +474,13 @@ analysts and researchers.`,
 
 <!-- ── About ── -->
 <section id="about">
-  <p class="section-label">About me</p>
-  <h2>Who I am</h2>
-  <div class="section-divider"></div>
   <div class="about-grid">
-    <p class="about-text" id="about-text"></p>
+    <div>
+      <p class="section-label">About me</p>
+      <h2>Who I am</h2>
+      <div class="section-divider"></div>
+      <p class="about-text" id="about-text"></p>
+    </div>
     <div class="about-meta" id="about-meta"></div>
   </div>
 </section>
@@ -584,7 +577,10 @@ analysts and researchers.`,
         <div class="project-tags">${
           p.tags.map(t => `<span class="project-tag">${t}</span>`).join("")
         }</div>
-        <a class="${btnCls}" href="${p.link}" target="_blank" rel="noopener">${p.label} ↗</a>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          ${p.archLink ? `<a class="btn-project" style="background:transparent;border:1px solid var(--border);color:var(--muted)" href="${p.archLink}" target="_blank" rel="noopener">Architecture ↗</a>` : ""}
+          <a class="${btnCls}" href="${p.link}" target="_blank" rel="noopener">${p.label} ↗</a>
+        </div>
       </div>`;
     pg.appendChild(card);
   });
