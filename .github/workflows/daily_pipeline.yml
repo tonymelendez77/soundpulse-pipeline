@@ -101,4 +101,7 @@ jobs:
           git config user.email "bot@soundpulse"
           git add docs/data/ docs/audio/
           git diff --staged --quiet || git commit -m "chore: daily data refresh [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          # Pull any commits pushed to main since this workflow started (e.g. manual fixes),
+          # then push. --rebase keeps the history linear. || true so a clean repo doesn't fail.
+          git pull --rebase https://x-access-token:${{ secrets.GH_PAT }}@github.com/tonymelendez77/soundpulse-pipeline.git main || true
           git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/tonymelendez77/soundpulse-pipeline.git HEAD:main
