@@ -117,7 +117,7 @@ def run_dbt():
 
 @task(name="M9 · DistilRoBERTa Emotion NLP", retries=1, retry_delay_seconds=180)
 def run_emotion_nlp():
-    _run("ingestion/emotion_classification.py", "M9-emotion")
+    _run("ingestion/news_sentiment.py", "M9-emotion")
 
 # ════════════════════════════════════════════════════════════════════════════
 # LAYER 4 — Clustering + Correlation  (Modules 10–11)
@@ -125,7 +125,7 @@ def run_emotion_nlp():
 
 @task(name="M10 · KMeans Audio Clustering", retries=1, retry_delay_seconds=60)
 def run_clustering():
-    _run("ingestion/audio_clustering.py", "M10-kmeans")
+    _run("ingestion/audio_mood_clusters.py", "M10-kmeans")
 
 @task(name="M11 · Pearson Correlation", retries=1, retry_delay_seconds=60)
 def run_correlation():
