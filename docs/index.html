@@ -1662,7 +1662,7 @@ async function initTrends() {
     yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder, automargin: true },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
     legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.18, font:{size:10}, tracegroupgap:2 },
-    margin: { l: 90, r: 20, t: 20, b: 80 + legendRows * 20 },
+    margin: { l: 40, r: 80, t: 20, b: 80 + legendRows * 20 },
     hovermode: 'closest',
   }, CONFIG);
 }
