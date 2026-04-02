@@ -1268,7 +1268,7 @@ async function initHeatmap() {
     height: 420,
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'News Emotion', automargin: true, tickangle: -30 },
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '', automargin: true },
-    margin: { l: 110, r: 70, t: 50, b: 110 },
+    margin: { l: 140, r: 70, t: 50, b: 110 },
   }, CONFIG);
 }
 
@@ -1379,7 +1379,7 @@ async function initPrediction() {
         xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true, automargin: true },
         yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
         legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
-        margin: { l: 130, r: 20, t: 50, b: 50 },
+        margin: { l: 110, r: 60, t: 50, b: 50 },
       }, CONFIG);
     }
   } else {
