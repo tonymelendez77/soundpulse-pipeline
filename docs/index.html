@@ -155,8 +155,8 @@
     .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media (max-width:900px) { .chart-grid { grid-template-columns:1fr; } }
 
-    /* Chart containers must fill their card and never collapse to zero */
-    [id^="chart-"] { width:100%; min-height:200px; }
+    /* Chart containers: never collapse to zero before Plotly renders */
+    [id^="chart-"] { min-height:200px; }
 
     /* ── METRICS ── */
     .metrics { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:32px; }
@@ -1922,42 +1922,41 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
     initRunHistory()     .catch(e => console.warn('Run history:', e)),
   ]);
 
-  // ── Robust Plotly resize on zoom / window resize ──────────────────────────
+  // ── Robust Plotly resize on zoom / window resize / mobile ─────────────────
   //
-  // ROOT CAUSE: after first render Plotly stamps style="width:Xpx; height:Ypx"
-  // directly on the chart element.  When the browser is zoomed the card shrinks
-  // in CSS pixels, but el.offsetWidth still returns the old inline value, so
-  // Plotly.Plots.resize() detects "nothing changed" and bails out silently.
+  // WHY Plotly.Plots.resize() was WRONG here:
+  //   It internally calls gd.style.width='' AND gd.style.height='' before
+  //   measuring the parent. The card's height is driven by its content (the
+  //   chart), so after clearing the inline height the card collapses to 48px
+  //   (just padding). Plotly then renders a 48px-tall chart → tiny squashed graphs.
   //
-  // FIX: before calling resize, remove ONLY the inline width (not height —
-  // clearing height collapses the element to 0 before Plotly can measure it).
-  // With the inline width gone, el.offsetWidth returns the real container width
-  // and Plotly redraws at the correct size.
+  // CORRECT API: Plotly.relayout(el, { width: newPx })
+  //   Updates ONLY the width. Height stays exactly as set in the original layout
+  //   config (400px, 420px etc.). No inline-style manipulation needed.
   //
-  // We use ResizeObserver on each chart's parent .card (not on the chart element
-  // itself — Plotly re-stamps the inline width after every resize call, which
-  // would trigger the observer again and create an infinite loop).
-  // A debounced window 'resize' listener serves as a fallback for browsers /
-  // zoom methods that don't trigger ResizeObserver.
+  // We read the true available width from ResizeObserver's contentRect
+  // (content-box, so padding is already excluded) and pass it directly.
+  // A debounced window 'resize' listener handles browsers / zoom methods that
+  // do not trigger ResizeObserver (some Firefox, Safari CSS zoom).
 
   const CHART_IDS = [
     'chart-heatmap','chart-timeline','chart-shap','chart-radar',
     'chart-mood-timeline','chart-anxiety','chart-emotion-bar','chart-runs-timeline'
   ];
 
-  function resizeOne(id) {
+  function resizeToWidth(id, width) {
     const el = document.getElementById(id);
-    if (!el || !el.data) return;
-    el.style.width = '';          // ← clear stale inline width only
-    Plotly.Plots.resize(el);      // Plotly now reads the real container width
+    if (!el || !el.data || width < 80) return;
+    Plotly.relayout(el, { width: Math.floor(width) });
   }
 
-  // ResizeObserver — fires whenever a card's rendered size changes (zoom, resize, layout shift)
+  // ResizeObserver on each card: contentRect.width is already padding-excluded
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(entries => {
       entries.forEach(entry => {
         const ids = (entry.target.dataset.plotlyIds || '').split(',').filter(Boolean);
-        ids.forEach(resizeOne);
+        const w = entry.contentRect.width;
+        ids.forEach(id => resizeToWidth(id, w));
       });
     });
     CHART_IDS.forEach(id => {
@@ -1965,20 +1964,24 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
       if (!el) return;
       const card = el.closest('.card') || el.parentElement;
       if (!card) return;
-      // A card may hold more than one chart — accumulate all IDs on the card
       card.dataset.plotlyIds = card.dataset.plotlyIds
-        ? card.dataset.plotlyIds + ',' + id
-        : id;
+        ? card.dataset.plotlyIds + ',' + id : id;
       ro.observe(card);
     });
   }
 
-  // window resize fallback (catches zoom on browsers where ResizeObserver
-  // does not fire for devicePixelRatio-only changes, e.g. some Firefox builds)
+  // window resize fallback — also covers mobile orientation change
   let _rzTimer;
   window.addEventListener('resize', () => {
     clearTimeout(_rzTimer);
-    _rzTimer = setTimeout(() => CHART_IDS.forEach(resizeOne), 120);
+    _rzTimer = setTimeout(() => {
+      CHART_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !el.data) return;
+        const card = el.closest('.card') || el.parentElement;
+        if (card) resizeToWidth(id, card.clientWidth - 48); // subtract 24px padding × 2
+      });
+    }, 120);
   });
 })();
 </script>
