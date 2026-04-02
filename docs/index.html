@@ -1919,20 +1919,26 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
     initRunHistory()     .catch(e => console.warn('Run history:', e)),
   ]);
 
-  // Resize all Plotly charts when browser zoom changes
+  // Resize all Plotly charts when browser zoom / window size changes.
+  // We must clear the inline width Plotly stamped on first render, otherwise
+  // el.offsetWidth returns the stale pixel value and the chart never shrinks.
   const CHART_IDS = [
     'chart-heatmap','chart-timeline','chart-shap','chart-radar',
     'chart-mood-timeline','chart-anxiety','chart-emotion-bar','chart-runs-timeline'
   ];
+  function resizeAllCharts() {
+    CHART_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || !el.data) return;
+      el.style.width  = '';   // let the container dictate width
+      el.style.height = '';   // let the layout height re-apply
+      Plotly.Plots.resize(el);
+    });
+  }
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      CHART_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el.data) Plotly.Plots.resize(el);
-      });
-    }, 150);
+    resizeTimer = setTimeout(resizeAllCharts, 100);
   });
 })();
 </script>
