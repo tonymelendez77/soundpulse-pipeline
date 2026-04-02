@@ -23,6 +23,12 @@ jobs:
       PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
       PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+      LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+      NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      GUARDIAN_API_KEY: ${{ secrets.GUARDIAN_API_KEY }}
 
     steps:
       # ── 0. Checkout ──────────────────────────────────────────────────────────
