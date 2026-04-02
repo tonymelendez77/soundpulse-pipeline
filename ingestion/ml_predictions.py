@@ -128,6 +128,10 @@ def main():
     n_classes = len(class_names)
     logger.info(f"  Target classes ({n_classes}): {class_names}")
 
+    if n_classes < 2:
+        logger.warning("Only 1 mood class in data — need more weeks for meaningful predictions. Skipping ML training.")
+        return
+
     # 4. Train XGBoost
     params = {
         "objective":        "multi:softprob",
@@ -137,7 +141,6 @@ def main():
         "n_estimators":     200,
         "subsample":        0.8,
         "colsample_bytree": 0.8,
-        "use_label_encoder": False,
         "eval_metric":      "mlogloss",
         "random_state":     42,
     }
@@ -158,7 +161,7 @@ def main():
 
     train_acc = accuracy_score(y, y_pred)
     logger.info(f"  Train accuracy: {train_acc:.3f}")
-    logger.info("\n" + classification_report(y, y_pred, target_names=class_names))
+    logger.info("\n" + classification_report(y, y_pred, labels=list(range(n_classes)), target_names=class_names))
 
     # 5. SHAP values
     logger.info("Computing SHAP values …")
