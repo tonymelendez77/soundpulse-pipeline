@@ -1182,6 +1182,7 @@ const PLOTLY_LAYOUT = {
   yaxis:         { gridcolor: '#30363d', linecolor: '#30363d', zerolinecolor: '#30363d' },
   margin:        { l: 10, r: 10, t: 30, b: 40 },
   legend:        { bgcolor: 'transparent' },
+  autosize:      true,
 };
 const CONFIG = { responsive: true, displayModeBar: false };
 
@@ -1263,7 +1264,7 @@ async function initHeatmap() {
     height: 420,
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'News Emotion', automargin: true, tickangle: -30 },
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '', automargin: true },
-    margin: { l: 110, r: 70, t: 20, b: 110 },
+    margin: { l: 110, r: 70, t: 50, b: 110 },
   }, CONFIG);
 }
 
@@ -1370,11 +1371,11 @@ async function initPrediction() {
         };
       });
       Plotly.newPlot('chart-shap', shapTraces, {
-        ...PLOTLY_LAYOUT, height: 440, barmode: 'overlay',
+        ...PLOTLY_LAYOUT, height: 460, barmode: 'overlay',
         xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true, automargin: true },
         yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
-        legend: { bgcolor:'transparent', x:0, xanchor:'left', y:1 },
-        margin: { l: 130, r: 20, t: 40, b: 50 },
+        legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
+        margin: { l: 130, r: 20, t: 50, b: 50 },
       }, CONFIG);
     }
   } else {
@@ -1395,11 +1396,11 @@ async function initPrediction() {
       };
     });
     Plotly.newPlot('chart-shap', shapTraces, {
-      ...PLOTLY_LAYOUT, height: 440, barmode: 'group',
+      ...PLOTLY_LAYOUT, height: 460, barmode: 'group',
       xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true, automargin: true },
       yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
-      legend: { bgcolor:'transparent', x:0, xanchor:'left', y:1 },
-      margin: { l: 130, r: 20, t: 40, b: 50 },
+      legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
+      margin: { l: 130, r: 20, t: 50, b: 50 },
     }, CONFIG);
   }
 
@@ -1877,8 +1878,8 @@ async function initRunHistory() {
     barmode: 'stack',
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Run date' },
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Duration (min)' },
-    legend: { bgcolor:'rgba(13,17,23,.8)', x:0, xanchor:'left', y:1 },
-    margin: { l: 50, r: 20, t: 10, b: 50 },
+    legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.08, yanchor:'bottom' },
+    margin: { l: 55, r: 30, t: 50, b: 55 },
     shapes: [{
       type: 'line', x0: 0, x1: 1, xref: 'paper',
       y0: Math.round(avgDur/60), y1: Math.round(avgDur/60), yref: 'y',
