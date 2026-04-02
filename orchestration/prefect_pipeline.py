@@ -96,7 +96,7 @@ def ingest_lastfm():
 
 @task(name="M5 · Billboard Charts", retries=2, retry_delay_seconds=60)
 def ingest_billboard():
-    _run("ingestion/historical_backfill.py", "M5-billboard")
+    _run("ingestion/billboard_ingestion.py", "M5-billboard")
 
 @task(name="M6 · Librosa Audio Features", retries=1, retry_delay_seconds=120)
 def ingest_librosa():
