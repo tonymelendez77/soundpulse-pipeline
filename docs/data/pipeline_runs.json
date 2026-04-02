@@ -1,5 +1,15 @@
 [
   {
+    "run_id": "0d576f18",
+    "started_at": "2026-04-02T18:42:46.605185+00:00",
+    "completed_at": null,
+    "status": "running",
+    "duration_seconds": 0,
+    "modules_completed": [],
+    "tasks_ok": 0,
+    "tasks_total": 16
+  },
+  {
     "run_id": "c27f292e",
     "started_at": "2026-04-02T17:06:44.495398+00:00",
     "completed_at": "2026-04-02T17:11:20.151243+00:00",
