@@ -434,8 +434,12 @@ def main():
 
     n_splits = min(3, len(df) // 2)
     if n_splits >= 2:
-        cv_scores = cross_val_score(model, X, y, cv=n_splits, scoring="accuracy",
-                                    fit_params={"sample_weight": sample_weights})
+        try:
+            cv_scores = cross_val_score(model, X, y, cv=n_splits, scoring="accuracy",
+                                        fit_params={"sample_weight": sample_weights})
+        except TypeError:
+            # older sklearn version — cross-validate without sample weights
+            cv_scores = cross_val_score(model, X, y, cv=n_splits, scoring="accuracy")
         logger.info(f"  CV accuracy ({n_splits}-fold, weighted): {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
 
     model.fit(X, y, sample_weight=sample_weights)

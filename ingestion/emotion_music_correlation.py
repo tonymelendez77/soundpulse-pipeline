@@ -11,6 +11,7 @@ Answers: which world emotions drive which audio mood archetypes?
   — Weekly joined table for Layer 4 (XGBoost features)
 """
 
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -82,6 +83,7 @@ def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
     table = bigquery.Table(table_id, schema=schema)
     client.create_table(table)
+    time.sleep(3)   # BQ streaming insert needs a moment after table (re)creation
     logger.info(f"Table ready: {table_id}")
 
 
@@ -120,10 +122,6 @@ def main():
     audio_df = client.query(f"SELECT * FROM `{AUDIO_AGG}`").to_dataframe()
     logger.info(f"  {len(audio_df):,} rows (week × source)")
 
-    # Dominant mood per week = mode across sources
-    def dominant_mood_for_week(grp):
-        return grp["dominant_mood"].mode()[0]
-
     audio_weekly = (
         audio_df.groupby("week_start")
         .agg(
@@ -131,14 +129,45 @@ def main():
         )
         .reset_index()
     )
-    audio_weekly["dominant_mood"] = (
-        audio_df.groupby("week_start", group_keys=False).apply(dominant_mood_for_week).values
-    )
     audio_weekly["week_start"] = pd.to_datetime(audio_weekly["week_start"])
 
-    # 3. Inner join on week_start
-    joined = pd.merge(news_weekly, audio_weekly, on="week_start", how="inner")
-    logger.info(f"Joined {len(joined):,} weeks with both emotion + audio data")
+    # Dominant mood via relative z-score ranking.
+    # Because one mood archetype (e.g. "aggressive") can dominate every week in
+    # absolute terms, mode-based winner-take-all produces a single class label for
+    # ALL weeks, making training useless.  Z-score ranking labels each week by
+    # WHICH MOOD IS MOST ABOVE ITS OWN HISTORICAL AVERAGE — giving the classifier
+    # genuine class diversity even when absolute distributions are similar.
+    z_map = {"euphoric_pct_z": "euphoric", "melancholic_pct_z": "melancholic",
+             "aggressive_pct_z": "aggressive"}
+    for col in ["euphoric_pct", "melancholic_pct", "aggressive_pct"]:
+        mean_val = audio_weekly[col].mean()
+        std_val  = audio_weekly[col].std()
+        z_col    = f"{col}_z"
+        if std_val > 1e-4:
+            audio_weekly[z_col] = (audio_weekly[col] - mean_val) / std_val
+        else:
+            audio_weekly[z_col] = 0.0
+    audio_weekly["dominant_mood"] = (
+        audio_weekly[list(z_map.keys())].idxmax(axis=1).map(z_map)
+    )
+    # Log distribution so we can see diversity
+    mood_dist = audio_weekly["dominant_mood"].value_counts().to_dict()
+    logger.info(f"  dominant_mood distribution (z-score): {mood_dist}")
+
+    # 3. Left join: keep ALL audio weeks, fill missing news emotions with column means
+    # This ensures the model sees all 52 weeks of diverse audio data even when
+    # news backfill is incomplete (e.g. Guardian API rate-limited to 13 weeks).
+    joined = pd.merge(audio_weekly, news_weekly, on="week_start", how="left")
+    # Mean-impute missing emotion features
+    for col in EMOTION_COLS:
+        col_mean = joined[col].mean()
+        joined[col] = joined[col].fillna(col_mean if pd.notna(col_mean) else 0.0)
+    joined["dominant_emotion"] = joined["dominant_emotion"].fillna("neutral")
+    n_imputed = joined["dominant_emotion"].eq("neutral").sum()
+    logger.info(
+        f"Joined {len(joined):,} weeks (audio-anchored left join, "
+        f"{n_imputed} weeks had news emotion imputed from column means)"
+    )
 
     if len(joined) < 3:
         logger.error("Too few overlapping weeks for correlation — check that both Layer 1 and Layer 2 ran successfully.")
