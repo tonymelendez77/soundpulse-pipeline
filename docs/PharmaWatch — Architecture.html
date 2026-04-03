@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<!-- saved from url=(0062)file:///C:/Users/tony_/Downloads/pharmawatch-architecture.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmaWatch — Architecture</title>
+<link href="./PharmaWatch — Architecture_files/css2" rel="stylesheet">
+<style>
+  :root {
+    --bg: #03060f;
+    --surface: #080f1e;
+    --border: #0d1f3c;
+    --accent: #00e5ff;
+    --accent2: #7b2fff;
+    --accent3: #00ff9d;
+    --warn: #ff6b35;
+    --text: #c8d8f0;
+    --muted: #4a6080;
+    --trial: #ff6b35;
+    --free: #00ff9d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 64px;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  .logo-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    margin-bottom: 20px;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    margin-bottom: 56px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .dot-free { background: var(--free); }
+  .dot-trial { background: var(--trial); }
+  .dot-migrates { background: var(--accent2); }
+
+  /* Architecture layers */
+  .arch {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .layer {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 3px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .layer:nth-child(1) { animation-delay: 0.1s; }
+  .layer:nth-child(2) { animation-delay: 0.2s; }
+  .layer:nth-child(3) { animation-delay: 0.3s; }
+  .layer:nth-child(4) { animation-delay: 0.4s; }
+  .layer:nth-child(5) { animation-delay: 0.5s; }
+  .layer:nth-child(6) { animation-delay: 0.6s; }
+  .layer:nth-child(7) { animation-delay: 0.7s; }
+  .layer:nth-child(8) { animation-delay: 0.8s; }
+  .layer:nth-child(9) { animation-delay: 0.9s; }
+  .layer:nth-child(10) { animation-delay: 1.0s; }
+
+  .layer-label {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .layer-content {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+
+  .tool {
+    flex: 1;
+    min-width: 140px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    position: relative;
+    cursor: default;
+    transition: all 0.25s ease;
+    overflow: hidden;
+  }
+
+  .tool::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    transition: opacity 0.25s;
+  }
+
+  .tool.free::before { background: var(--free); }
+  .tool.trial::before { background: var(--trial); }
+  .tool.migrates::before { background: var(--accent2); }
+
+  .tool:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    background: #0a1628;
+  }
+
+  .tool:hover .tool-glow {
+    opacity: 1;
+  }
+
+  .tool-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.06), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+  }
+
+  .tool-name {
+    font-weight: 800;
+    font-size: 15px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .tool-role {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+  }
+
+  .tool-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .badge-free {
+    background: rgba(0,255,157,0.1);
+    color: var(--free);
+    border: 1px solid rgba(0,255,157,0.3);
+  }
+
+  .badge-trial {
+    background: rgba(255,107,53,0.1);
+    color: var(--trial);
+    border: 1px solid rgba(255,107,53,0.3);
+  }
+
+  .badge-migrates {
+    background: rgba(123,47,255,0.1);
+    color: #a78bfa;
+    border: 1px solid rgba(123,47,255,0.3);
+  }
+
+  /* Migration arrows section */
+  .migration-section {
+    margin-top: 48px;
+    animation: fadeUp 0.8s 1.1s ease both;
+  }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .migration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 3px;
+  }
+
+  .migration-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .migration-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--trial), var(--accent2), var(--free));
+  }
+
+  .migration-flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .mig-from {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--trial);
+  }
+
+  .mig-arrow {
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .mig-to {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--free);
+  }
+
+  .mig-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Code snippet */
+  .code-section {
+    margin-top: 48px;
+    animation: fadeUp 0.8s 1.2s ease both;
+  }
+
+  .code-block {
+    background: #020810;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 24px 28px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .code-comment { color: var(--muted); }
+  .code-key { color: var(--accent); }
+  .code-val { color: var(--free); }
+  .code-str { color: #ff9d7b; }
+  .code-fn { color: var(--accent2); opacity: 0.9; }
+
+  /* Hosting section */
+  .hosting-section {
+    margin-top: 48px;
+    animation: fadeUp 0.8s 1.3s ease both;
+  }
+
+  .hosting-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 3px;
+  }
+
+  .hosting-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+  }
+
+  .hosting-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .hosting-platform {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .hosting-what {
+    font-weight: 800;
+    font-size: 15px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .hosting-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Flow diagram */
+  .flow-section {
+    margin-top: 48px;
+    animation: fadeUp 0.8s 1.4s ease both;
+  }
+
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    row-gap: 16px;
+  }
+
+  .flow-node {
+    background: #020810;
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .flow-node.highlight {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .flow-node.highlight2 {
+    border-color: var(--accent2);
+    color: #a78bfa;
+  }
+
+  .flow-node.highlight3 {
+    border-color: var(--free);
+    color: var(--free);
+  }
+
+  .flow-arrow {
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    padding: 0 8px;
+    font-size: 16px;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Pulse on trial badges */
+  .badge-trial {
+    animation: pulseTrial 2s infinite;
+  }
+
+  @keyframes pulseTrial {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-tag">Architecture v1.0</div>
+    <h1>PharmaWatch</h1>
+    <div class="subtitle">Drug Risk Intelligence Platform — Full Stack Design</div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot dot-free"></div>
+      <span>Free Forever</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot dot-trial"></div>
+      <span>30-Day Trial</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot dot-migrates"></div>
+      <span>Migrates via Config Flag</span>
+    </div>
+  </div>
+
+  <!-- Architecture Layers -->
+  <div class="arch">
+
+    <div class="layer">
+      <div class="layer-label">Data Sources</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">PubMed API</div>
+          <div class="tool-role">Latest medical research papers</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">FDA FAERS API</div>
+          <div class="tool-role">Adverse event reports</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">Reddit API</div>
+          <div class="tool-role">Patient sentiment &amp; experiences</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">DrugBank / OpenFDA</div>
+          <div class="tool-role">Drug metadata &amp; interactions</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Orchestration</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">Apache Airflow</div>
+          <div class="tool-role">Pipeline scheduling &amp; DAGs</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">GitHub Actions</div>
+          <div class="tool-role">Production cron jobs (always-on)</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">Docker</div>
+          <div class="tool-role">Containerization everywhere</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Raw Lake</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free Tier</span>
+          <div class="tool-name">AWS S3</div>
+          <div class="tool-role">Raw JSON / CSV dumps. 5GB free tier</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Processing</div>
+      <div class="layer-content">
+        <div class="tool trial">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-trial">30-Day Trial</span>
+          <div class="tool-name">Scala + Spark</div>
+          <div class="tool-role">FAERS heavy transform on Databricks. Parse nested XML, normalize drug names, deduplicate, output Parquet</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Warehouse</div>
+      <div class="layer-content">
+        <div class="tool trial">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-trial">30-Day Trial</span>
+          <div class="tool-name">Snowflake</div>
+          <div class="tool-role">Primary warehouse during build &amp; demo</div>
+        </div>
+        <div class="tool migrates">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-migrates">Migrates To</span>
+          <div class="tool-name">BigQuery</div>
+          <div class="tool-role">Production warehouse. 1TB/month free</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Transform</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">dbt</div>
+          <div class="tool-role">Data modeling, tests, documentation</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">ML Layer</div>
+      <div class="layer-content">
+        <div class="tool trial">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-trial">30-Day Trial</span>
+          <div class="tool-name">Databricks</div>
+          <div class="tool-role">MLflow experiment tracking + hosts Scala/Spark jobs</div>
+        </div>
+        <div class="tool migrates">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-migrates">Migrates To</span>
+          <div class="tool-name">Local MLflow</div>
+          <div class="tool-role">Hosted on Render. Same tracking UI</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">LightGBM + SHAP</div>
+          <div class="tool-role">Personalized risk scoring + explainability</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">RAG / AI</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">LangChain</div>
+          <div class="tool-role">RAG pipeline orchestration</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free Tier</span>
+          <div class="tool-name">Groq API</div>
+          <div class="tool-role">Llama 3 inference. 14,400 req/day free</div>
+        </div>
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">ChromaDB</div>
+          <div class="tool-role">Vector store for paper embeddings</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">API</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">FastAPI</div>
+          <div class="tool-role">REST API layer. Hosted on Render</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">UI</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">Gradio</div>
+          <div class="tool-role">User interface. Hosted on HuggingFace Spaces</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="layer">
+      <div class="layer-label">Version Control</div>
+      <div class="layer-content">
+        <div class="tool free">
+          <div class="tool-glow"></div>
+          <span class="tool-badge badge-free">Free</span>
+          <div class="tool-name">GitHub</div>
+          <div class="tool-role">Code, CI/CD triggers, Actions scheduler</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Migration Section -->
+  <div class="migration-section">
+    <div class="section-title">Planned Migrations — Single Config Flag</div>
+    <div class="migration-grid">
+      <div class="migration-card">
+        <div class="migration-flow">
+          <span class="mig-from">Snowflake</span>
+          <span class="mig-arrow">──▶</span>
+          <span class="mig-to">BigQuery</span>
+        </div>
+        <div class="mig-desc">
+          WAREHOUSE=bigquery in .env<br>
+          Triggered when 30-day trial ends.<br>
+          Zero code changes required.
+        </div>
+      </div>
+      <div class="migration-card">
+        <div class="migration-flow">
+          <span class="mig-from">Databricks</span>
+          <span class="mig-arrow">──▶</span>
+          <span class="mig-to">Local MLflow</span>
+        </div>
+        <div class="mig-desc">
+          ML_TRACKING=local in .env<br>
+          MLflow UI hosted on Render free tier.<br>
+          Same experiment tracking interface.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code Block -->
+  <div class="code-section">
+    <div class="section-title">Config Flag Pattern</div>
+    <div class="code-block">
+      <span class="code-comment"># config/settings.py — the migration lives here from day one</span><br><br>
+      <span class="code-key">WAREHOUSE</span> = <span class="code-fn">os.getenv</span>(<span class="code-str">"WAREHOUSE"</span>, <span class="code-str">"snowflake"</span>)&nbsp;&nbsp;&nbsp;<span class="code-comment"># flip to "bigquery"</span><br>
+      <span class="code-key">ML_TRACKING</span> = <span class="code-fn">os.getenv</span>(<span class="code-str">"ML_TRACKING"</span>, <span class="code-str">"databricks"</span>)&nbsp;<span class="code-comment"># flip to "local"</span><br><br>
+      <span class="code-comment"># config/warehouse.py</span><br>
+      <span class="code-key">if</span> WAREHOUSE == <span class="code-str">"snowflake"</span>:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># connect to Snowflake (trial)</span><br>
+      <span class="code-key">elif</span> WAREHOUSE == <span class="code-str">"bigquery"</span>:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-comment"># connect to BigQuery (production, free forever)</span>
+    </div>
+  </div>
+
+  <!-- Always On Hosting -->
+  <div class="hosting-section">
+    <div class="section-title">Always-On Hosting — Zero Cost</div>
+    <div class="hosting-grid">
+      <div class="hosting-card">
+        <div class="hosting-platform">HuggingFace Spaces</div>
+        <div class="hosting-what">Gradio UI</div>
+        <div class="hosting-desc">Public portfolio link.<br>Always on. Built for Gradio.</div>
+      </div>
+      <div class="hosting-card">
+        <div class="hosting-platform">Render.com</div>
+        <div class="hosting-what">FastAPI + MLflow</div>
+        <div class="hosting-desc">Free web service tier.<br>Auto-deploys from GitHub.</div>
+      </div>
+      <div class="hosting-card">
+        <div class="hosting-platform">GitHub Actions</div>
+        <div class="hosting-what">Pipeline Scheduler</div>
+        <div class="hosting-desc">Replaces Airflow in prod.<br>Cron jobs on GitHub servers.</div>
+      </div>
+      <div class="hosting-card">
+        <div class="hosting-platform">Google BigQuery</div>
+        <div class="hosting-what">Warehouse</div>
+        <div class="hosting-desc">1TB queries/month free.<br>Always on, no server needed.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- End to End Flow -->
+  <div class="flow-section">
+    <div class="section-title">End-to-End Data Flow</div>
+    <div class="flow">
+      <div class="flow-node highlight">User Input<br><small style="font-size:10px;opacity:0.6">age, drug, habits</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">Gradio UI</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">FastAPI</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node highlight2">LightGBM<br><small style="font-size:10px;opacity:0.6">risk score</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node highlight2">RAG Agent<br><small style="font-size:10px;opacity:0.6">LangChain+Groq</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node highlight3">Dashboard<br><small style="font-size:10px;opacity:0.6">KPIs + AI answer</small></div>
+    </div>
+    <div style="margin-top:3px;">
+      <div class="flow" style="justify-content:flex-start;">
+        <div class="flow-node" style="font-size:11px;">Airflow / GitHub Actions</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="font-size:11px;">AWS S3</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="font-size:11px;">Snowflake → BigQuery</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="font-size:11px;">dbt transforms</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node" style="font-size:11px;">ChromaDB vectors</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node highlight2" style="font-size:11px;">RAG Ready</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+</body></html>
