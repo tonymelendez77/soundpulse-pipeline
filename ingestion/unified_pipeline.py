@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from difflib import SequenceMatcher
-from google.cloud import storage
+from google.cloud import bigquery, storage
 
 # Import modules
 from itunes_ingestion import fetch_all_itunes_charts, search_itunes_tracks
@@ -26,6 +26,10 @@ from audio_features_librosa import enrich_with_librosa_features
 from youtube_ingestion import run_youtube_ingestion
 from reddit_ingestion import run_reddit_ingestion
 from news_ingestion import run_news_ingestion
+
+# BigQuery config
+PROJECT = "soundpulse-production"
+DATASET = "music_analytics"
 
 # TEST MODE
 TEST_MODE = True
@@ -420,6 +424,76 @@ def upload_to_gcs(data, filename, prefix="raw"):
 
 
 # ============================================================
+# SMART RESUME — gap detection + backfill for missed pipeline runs
+# ============================================================
+
+def _gcs_files_for_date(gcs_client: storage.Client, prefix: str, date_compact: str) -> list:
+    """Return GCS blobs whose name contains the compact date string (YYYYMMDD)."""
+    try:
+        bucket = gcs_client.bucket(BUCKET_NAME)
+        return [b for b in bucket.list_blobs(prefix=prefix) if date_compact in b.name]
+    except Exception:
+        return []
+
+
+def get_missing_dates(gcs_client: storage.Client, gcs_prefix: str,
+                      days_back: int = 7) -> list[str]:
+    """Return YYYY-MM-DD strings for days in the last N days with no GCS file.
+    Used to detect missed pipeline runs."""
+    today   = datetime.now(tz=timezone.utc).date()
+    missing = []
+    for i in range(1, days_back + 1):
+        d       = today - timedelta(days=i)
+        compact = d.strftime("%Y%m%d")
+        iso     = d.isoformat()
+        if not _gcs_files_for_date(gcs_client, gcs_prefix, compact):
+            missing.append(iso)
+    if missing:
+        print(f"[smart-resume] {gcs_prefix}: missing {len(missing)} days → {missing}")
+    return missing
+
+
+def backfill_gaps(gcs_client: storage.Client, missing_dates: list[str]) -> None:
+    """For each missing date, re-fetch Billboard, News, and Reddit data and upload to GCS.
+    YouTube/iTunes/Last.fm are current-only and cannot be backfilled."""
+    if not missing_dates:
+        return
+
+    for date_str in missing_dates:
+        compact = date_str.replace("-", "")
+        print(f"\n[smart-resume] ── Backfilling {date_str} ──")
+
+        # Billboard (supports historical date URLs)
+        try:
+            df = run_billboard_ingestion(date_str=date_str)
+            if not df.empty:
+                df["ingested_at"] = datetime.now(tz=timezone.utc).isoformat()
+                upload_to_gcs(df, f"billboard_backfill_{compact}", prefix="raw")
+                print(f"[smart-resume] Billboard {date_str}: {len(df)} songs uploaded")
+        except Exception as e:
+            print(f"[smart-resume] Billboard backfill failed for {date_str}: {e}")
+
+        # News — Guardian supports from-date/to-date
+        try:
+            news_df = run_news_ingestion(date_str=date_str)
+            if not news_df.empty:
+                upload_to_gcs(news_df, f"news_backfill_{compact}", prefix="raw/sentiment")
+                print(f"[smart-resume] News {date_str}: {len(news_df)} articles uploaded")
+            time.sleep(0.5)   # Guardian rate limit
+        except Exception as e:
+            print(f"[smart-resume] News backfill failed for {date_str}: {e}")
+
+        # Reddit — new.json with epoch window gives posts from specific day
+        try:
+            reddit_posts = run_reddit_ingestion(date_str=date_str)
+            if reddit_posts:
+                upload_to_gcs(reddit_posts, f"reddit_backfill_{compact}", prefix="raw/sentiment")
+                print(f"[smart-resume] Reddit {date_str}: {len(reddit_posts)} posts uploaded")
+        except Exception as e:
+            print(f"[smart-resume] Reddit backfill failed for {date_str}: {e}")
+
+
+# ============================================================
 # MAIN PIPELINE
 # ============================================================
 
@@ -433,27 +507,53 @@ def main():
     print("=" * 60)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    today_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+    # ── Smart resume: detect + fill gaps from missed runs ───
+    gcs_client = storage.Client()
+
+    # Check if charts already ran today (prevents duplicate ingestion on re-trigger)
+    charts_already_done = bool(
+        _gcs_files_for_date(gcs_client, "raw/trending_tracks_", today_str.replace("-", ""))
+    )
+    if charts_already_done:
+        print("[smart-resume] trending_tracks already in GCS for today — skipping chart fetch")
+
+    # Find and backfill any days missed in the last 7 days (Billboard + News + Reddit)
+    missing_dates = get_missing_dates(gcs_client, "raw/trending_tracks_", days_back=7)
+    backfill_gaps(gcs_client, missing_dates)
 
 # ── STEP 1: Fetch all trending sources ──────────────────
-    print("\n[1/9] Fetching iTunes charts (10 countries)...")
-    itunes_charts_df           = fetch_all_itunes_charts()
-    itunes_charts_df["source"] = "itunes_chart"
-    print(f"[OK] iTunes: {len(itunes_charts_df)} songs")
+    if charts_already_done:
+        print("\n[1-4/9] Charts already fetched today — loading from GCS skipped, using empty frames.")
+        itunes_charts_df    = pd.DataFrame(columns=["title","artist","release_date","genre","source","country_code","chart_rank"])
+        lastfm_df           = pd.DataFrame(columns=["title","artist","source","country","chart_rank","listeners","playcount"])
+        billboard_df        = pd.DataFrame(columns=["title","artist","source","chart_date","rank"])
+        youtube_trending_df = pd.DataFrame(columns=["title","channel","source","country_code"])
+        itunes_charts_df["source"] = "itunes_chart"
+        lastfm_df["source"]        = "lastfm_chart"
+        billboard_df["source"]     = "billboard_chart"
+        youtube_trending_df["source"] = "youtube_chart"
+    else:
+        print("\n[1/9] Fetching iTunes charts (10 countries)...")
+        itunes_charts_df           = fetch_all_itunes_charts()
+        itunes_charts_df["source"] = "itunes_chart"
+        print(f"[OK] iTunes: {len(itunes_charts_df)} songs")
 
-    print("\n[2/9] Fetching Last.fm charts (10 countries + global)...")
-    lastfm_df           = run_lastfm_ingestion()
-    lastfm_df["source"] = "lastfm_chart"
-    print(f"[OK] Last.fm: {len(lastfm_df)} songs")
+        print("\n[2/9] Fetching Last.fm charts (10 countries + global)...")
+        lastfm_df           = run_lastfm_ingestion()
+        lastfm_df["source"] = "lastfm_chart"
+        print(f"[OK] Last.fm: {len(lastfm_df)} songs")
 
-    print("\n[3/9] Fetching Billboard charts...")
-    billboard_df           = run_billboard_ingestion()
-    billboard_df["source"] = "billboard_chart"
-    print(f"[OK] Billboard: {len(billboard_df)} songs")
+        print("\n[3/9] Fetching Billboard charts...")
+        billboard_df           = run_billboard_ingestion()
+        billboard_df["source"] = "billboard_chart"
+        print(f"[OK] Billboard: {len(billboard_df)} songs")
 
-    print("\n[4/9] Fetching YouTube trending music (10 countries)...")
-    youtube_trending_df           = run_youtube_ingestion()
-    youtube_trending_df["source"] = "youtube_chart"
-    print(f"[OK] YouTube: {len(youtube_trending_df)} videos")
+        print("\n[4/9] Fetching YouTube trending music (10 countries)...")
+        youtube_trending_df           = run_youtube_ingestion()
+        youtube_trending_df["source"] = "youtube_chart"
+        print(f"[OK] YouTube: {len(youtube_trending_df)} videos")
 
     # ── STEP 2: Combine into master list ────────────────────
     print("\n[6/9] Building master trending list...")

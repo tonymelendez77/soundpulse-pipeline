@@ -30,14 +30,19 @@ CHARTS = [
 REQUEST_DELAY = 3
 
 
-def fetch_chart(slug: str, chart_name: str) -> list[dict]:
-    url      = f"https://www.billboard.com/charts/{slug}/"
+def fetch_chart(slug: str, chart_name: str, date_str: str | None = None) -> list[dict]:
+    """Fetch a Billboard chart. Pass date_str (YYYY-MM-DD) to retrieve a historical week."""
+    if date_str:
+        url = f"https://www.billboard.com/charts/{slug}/{date_str}/"
+    else:
+        url = f"https://www.billboard.com/charts/{slug}/"
     response = requests.get(url, headers=HEADERS, timeout=15)
     response.raise_for_status()
 
     soup    = BeautifulSoup(response.text, "html.parser")
     entries = soup.select("ul.o-chart-results-list-row")
     songs   = []
+    chart_date = date_str or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
     for rank, entry in enumerate(entries, start=1):
         title_el  = entry.select_one("h3#title-of-a-story")
@@ -52,23 +57,25 @@ def fetch_chart(slug: str, chart_name: str) -> list[dict]:
             "rank":        rank,
             "title":       title_el.get_text(strip=True),
             "artist":      artist_el.get_text(strip=True) if artist_el else None,
-            "chart_date":  datetime.now(tz=timezone.utc).strftime("%Y-%m-%d"),
+            "chart_date":  chart_date,
         })
 
-    logger.info(f"Fetched {len(songs)} songs from {chart_name}")
+    logger.info(f"Fetched {len(songs)} songs from {chart_name}" + (f" [{date_str}]" if date_str else ""))
     return songs
 
 
-def run_billboard_ingestion() -> pd.DataFrame:
-    logger.info("Starting Billboard ingestion run")
+def run_billboard_ingestion(date_str: str | None = None) -> pd.DataFrame:
+    """Fetch all Billboard charts. Pass date_str (YYYY-MM-DD) to backfill a specific week."""
+    label = f" [{date_str}]" if date_str else " [current]"
+    logger.info(f"Starting Billboard ingestion{label}")
     all_songs = []
 
     for chart in CHARTS:
         try:
-            songs = fetch_chart(chart["slug"], chart["name"])
+            songs = fetch_chart(chart["slug"], chart["name"], date_str=date_str)
             all_songs.extend(songs)
         except Exception as e:
-            logger.error(f"Billboard failed for '{chart['name']}': {e}")
+            logger.error(f"Billboard failed for '{chart['name']}'{label}: {e}")
         finally:
             time.sleep(REQUEST_DELAY)
 
