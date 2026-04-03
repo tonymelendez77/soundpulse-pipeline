@@ -224,19 +224,21 @@ def fetch_guardian_day(date_str: str) -> list[dict]:
     return all_articles
 
 
-def run_news_backfill() -> list[dict]:
+def run_news_backfill(existing_dates: set) -> list[dict]:
     total_days = DAYS_BACK_START - DAYS_BACK_END
-    logger.info(f"Starting Guardian news backfill: {total_days} days (rate-limited)")
+    logger.info(f"Starting Guardian news backfill: scanning {total_days} days, skipping already-collected")
     all_articles = []
     batch        = []
 
     for day_num in range(DAYS_BACK_START, DAYS_BACK_END, -1):
         date_dt  = datetime.now(tz=timezone.utc) - timedelta(days=day_num)
         date_str = date_dt.strftime("%Y-%m-%d")
+        if date_str in existing_dates:
+            continue   # already in BQ — skip without sleeping
         articles = fetch_guardian_day(date_str)
         all_articles.extend(articles)
         batch.extend(articles)
-        time.sleep(0.5)   # 0.5s between days keeps requests well under Guardian's rate limit
+        time.sleep(0.5)   # 0.5s between NEW fetches keeps under Guardian's rate limit
 
         days_done = DAYS_BACK_START - day_num
         if days_done % 7 == 0:
@@ -290,14 +292,17 @@ def fetch_billboard_week(date_str: str, week_number: int) -> list[dict]:
     return songs
 
 
-def run_billboard_backfill() -> list[dict]:
+def run_billboard_backfill(existing_weeks: set) -> list[dict]:
     total_weeks = WEEKS_BACK_START - WEEKS_BACK_END + 1
-    logger.info(f"Starting Billboard backfill: {total_weeks} weeks")
+    logger.info(f"Starting Billboard backfill: scanning {total_weeks} weeks, skipping already-collected")
     all_songs = []
     for week_num in range(WEEKS_BACK_START, WEEKS_BACK_END - 1, -1):
         week_start = datetime.now(tz=timezone.utc) - timedelta(weeks=week_num)
         date_str   = week_start.strftime("%Y-%m-%d")
         week_index = WEEKS_BACK_START - week_num + 1
+        if date_str in existing_weeks:
+            logger.info(f"Week {week_index}/{total_weeks}: {date_str} — already in BQ, skipping")
+            continue
         logger.info(f"Fetching week {week_index}/{total_weeks}: {date_str}")
         songs = fetch_billboard_week(date_str, week_index)
         all_songs.extend(songs)
@@ -524,50 +529,37 @@ def run_audio_backfill(billboard_songs: list) -> list:
 
 
 # ============================================================
-# GAP DETECTION — smart resume from last collected date
+# GAP DETECTION — fetch the set of already-collected dates/weeks
 # ============================================================
 
-def detect_news_start(client: bigquery.Client) -> int:
-    """Return how many days back to start news fetching.
-    Queries news_historical for the most recent date already stored,
-    then starts from the day after — no duplicates, no gaps."""
+def get_existing_news_dates(client: bigquery.Client) -> set:
+    """Return the set of date strings already in news_historical (e.g. '2025-10-06').
+    Used to skip dates we already have, wherever they fall in the timeline."""
     try:
         rows = list(client.query(
-            f"SELECT MAX(date) AS last_date FROM `{PROJECT}.{DATASET}.news_historical`"
+            f"SELECT DISTINCT date FROM `{PROJECT}.{DATASET}.news_historical`"
         ).result())
-        last_date_str = rows[0]["last_date"] if rows else None
-        if last_date_str:
-            last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
-            today     = datetime.now(tz=timezone.utc).date()
-            gap_days  = (today - last_date).days
-            # Start 1 day after the last stored date; cap at DAYS_BACK_START max
-            start = min(gap_days - 1, DAYS_BACK_START)
-            logger.info(f"News last date in BQ: {last_date_str} → fetching {start} missing days")
-            return max(start, 0)
+        dates = {r["date"] for r in rows}
+        logger.info(f"news_historical: {len(dates)} unique dates already in BQ")
+        return dates
     except Exception as e:
-        logger.warning(f"Could not detect news gap ({e}) — using full range {DAYS_BACK_START}")
-    return DAYS_BACK_START
+        logger.warning(f"Could not load existing news dates ({e}) — will fetch everything")
+        return set()
 
 
-def detect_music_start(client: bigquery.Client) -> int:
-    """Return how many weeks back to start Billboard fetching.
-    Queries trending_historical for the most recent week_start already stored,
-    then starts from the week after — no duplicates, no gaps."""
+def get_existing_music_weeks(client: bigquery.Client) -> set:
+    """Return the set of week_start strings already in trending_historical (e.g. '2025-12-29').
+    Used to skip weeks we already have, wherever they fall in the timeline."""
     try:
         rows = list(client.query(
-            f"SELECT MAX(week_start) AS last_week FROM `{PROJECT}.{DATASET}.trending_historical`"
+            f"SELECT DISTINCT week_start FROM `{PROJECT}.{DATASET}.trending_historical`"
         ).result())
-        last_week_str = rows[0]["last_week"] if rows else None
-        if last_week_str:
-            last_week = datetime.strptime(last_week_str, "%Y-%m-%d").date()
-            today     = datetime.now(tz=timezone.utc).date()
-            gap_weeks = (today - last_week).days // 7
-            start = min(gap_weeks - 1, WEEKS_BACK_START)
-            logger.info(f"Music last week in BQ: {last_week_str} → fetching {start} missing weeks")
-            return max(start, 0)
+        weeks = {r["week_start"] for r in rows}
+        logger.info(f"trending_historical: {len(weeks)} unique weeks already in BQ")
+        return weeks
     except Exception as e:
-        logger.warning(f"Could not detect music gap ({e}) — using full range {WEEKS_BACK_START}")
-    return WEEKS_BACK_START
+        logger.warning(f"Could not load existing music weeks ({e}) — will fetch everything")
+        return set()
 
 
 # ============================================================
@@ -593,30 +585,30 @@ def main():
             bq_client.create_table(bigquery.Table(full_table, schema=schema))
             logger.info(f"[OK] Created {full_table}")
 
-    # ── Smart resume: detect gaps from last stored date ──────────────────────
-    global DAYS_BACK_START, WEEKS_BACK_START
-    DAYS_BACK_START  = detect_news_start(bq_client)
-    WEEKS_BACK_START = detect_music_start(bq_client)
-    total_days  = DAYS_BACK_START - DAYS_BACK_END
-    total_weeks = WEEKS_BACK_START - WEEKS_BACK_END + 1
-    print(f"\nNews gap  : {total_days} days to fetch")
-    print(f"Music gap : {total_weeks} weeks to fetch")
+    # ── Smart resume: load existing date/week sets, skip what's already in BQ ─
+    print("\n[1b/6] Scanning existing data in BQ...")
+    existing_news_dates  = get_existing_news_dates(bq_client)
+    existing_music_weeks = get_existing_music_weeks(bq_client)
+    news_to_fetch  = (DAYS_BACK_START - DAYS_BACK_END) - len(
+        {d for d in existing_news_dates
+         if (datetime.now(tz=timezone.utc).date() - datetime.strptime(d, "%Y-%m-%d").date()).days
+            in range(DAYS_BACK_END, DAYS_BACK_START)}
+    )
+    music_to_fetch = (WEEKS_BACK_START - WEEKS_BACK_END + 1) - len(
+        {w for w in existing_music_weeks
+         if (datetime.now(tz=timezone.utc).date() - datetime.strptime(w, "%Y-%m-%d").date()).days // 7
+            in range(WEEKS_BACK_END, WEEKS_BACK_START + 1)}
+    )
+    print(f"  News  : ~{max(news_to_fetch, 0)} days missing out of {DAYS_BACK_START - DAYS_BACK_END}")
+    print(f"  Music : ~{max(music_to_fetch, 0)} weeks missing out of {WEEKS_BACK_START - WEEKS_BACK_END + 1}")
 
-    if total_days <= 0:
-        print("\n[2/6] News is up to date — skipping Guardian fetch.")
-        news_articles = []
-    else:
-        print("\n[2/6] Fetching Guardian historical news...")
-        news_articles = run_news_backfill()
-        print(f"[OK] Total news articles: {len(news_articles)}")
+    print("\n[2/6] Fetching Guardian historical news (missing dates only)...")
+    news_articles = run_news_backfill(existing_news_dates)
+    print(f"[OK] New news articles fetched: {len(news_articles)}")
 
-    if total_weeks <= 0:
-        print("\n[3/6] Music is up to date — skipping Billboard fetch.")
-        billboard_songs = []
-    else:
-        print("\n[3/6] Fetching Billboard historical charts...")
-        billboard_songs = run_billboard_backfill()
-        print(f"[OK] Total Billboard entries: {len(billboard_songs)}")
+    print("\n[3/6] Fetching Billboard historical charts (missing weeks only)...")
+    billboard_songs = run_billboard_backfill(existing_music_weeks)
+    print(f"[OK] New Billboard entries fetched: {len(billboard_songs)}")
 
     if billboard_songs:
         print("\n[4/6] iTunes matching + Librosa audio features...")
