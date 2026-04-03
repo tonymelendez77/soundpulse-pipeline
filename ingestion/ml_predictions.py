@@ -337,7 +337,49 @@ def main():
     logger.info(f"  Target classes ({n_classes}): {class_names}")
 
     if n_classes < 2:
-        logger.warning("Only 1 mood class — need more weeks. Skipping ML training.")
+        # Only 1 mood class in training data (e.g. all weeks are "aggressive").
+        # Can't train a classifier, but we still write the 3 period rows so
+        # music_generation.py can run. Use dominant mood at 100% confidence.
+        dominant_mood = class_names[0]
+        logger.warning(
+            f"Only 1 mood class ('{dominant_mood}') — skipping model training. "
+            "Writing 3 forward-inference rows with dominant mood at 100% confidence."
+        )
+        ensure_table(client, PRED_TABLE, PRED_SCHEMA)
+
+        today_d     = date.today()
+        this_monday = today_d - timedelta(days=today_d.weekday())
+        this_month1 = today_d.replace(day=1)
+        latest_emo, latest_pct = fetch_latest_emotions(client)
+        period_configs_fallback = [
+            ("today",   today_d),
+            ("weekly",  this_monday),
+            ("monthly", this_month1),
+        ]
+        fallback_rows = []
+        for period_name, tgt_date in period_configs_fallback:
+            emo = latest_emo
+            fallback_rows.append({
+                "week_start":       str(this_monday),
+                "period":           period_name,
+                "target_date":      str(tgt_date),
+                "actual_mood":      dominant_mood,
+                "predicted_mood":   dominant_mood,
+                "correct":          None,
+                "confidence":       1.0,
+                "mood_blend_json":  json.dumps({dominant_mood: 1.0}),
+                "avg_fear":         round(emo.get("avg_fear", 0.0), 6),
+                "avg_anger":        round(emo.get("avg_anger", 0.0), 6),
+                "avg_joy":          round(emo.get("avg_joy", 0.0), 6),
+                "avg_sadness":      round(emo.get("avg_sadness", 0.0), 6),
+                "anxiety_index":    round(emo.get("anxiety_index", 0.0), 6),
+                "tension_index":    round(emo.get("tension_index", 0.0), 6),
+                "positivity_index": round(emo.get("positivity_index", 0.0), 6),
+                "ingested_at":      now_ts,
+            })
+            logger.info(f"  {period_name:8s} → {dominant_mood} (fallback, 1 class only)")
+        streaming_insert(client, PRED_TABLE, fallback_rows)
+        logger.info("─── LAYER 4 COMPLETE (1-class fallback) ───")
         return
 
     # 5. Class-balanced sample weights (fix majority-class bias)
