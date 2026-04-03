@@ -154,10 +154,21 @@ def fetch_predictions_by_period(client: bigquery.Client) -> dict:
     return result
 
 
-def compute_avg_features(client: bigquery.Client, similar_tracks: list[dict]) -> dict:
+def compute_avg_features(
+    client: bigquery.Client,
+    similar_tracks: list[dict],
+    centroid_features: dict,
+) -> dict:
+    """Average audio features of the top-K similar Pinecone tracks.
+
+    Falls back to centroid_features (the mood archetype's own avg features from BQ)
+    when track names can't be matched in trending_historical. This prevents the
+    contradictory prompt bug where 0.5 defaults produced descriptors that
+    contradicted the predicted mood (e.g. "euphoric" with "melancholic minor key").
+    """
     titles_artists = [(t["title"], t["artist"]) for t in similar_tracks]
     if not titles_artists:
-        return {col: 0.5 for col in FEATURE_COLS}
+        return centroid_features
 
     conditions = " OR ".join(
         f"(LOWER(TRIM(title)) = '{t.lower().replace(chr(39), chr(39)*2)}' "
@@ -180,8 +191,12 @@ def compute_avg_features(client: bigquery.Client, similar_tracks: list[dict]) ->
         rows = list(client.query(query2).result())
 
     if rows and rows[0]["tempo"] is not None:
-        return {c: float(rows[0][c] or 0.5) for c in FEATURE_COLS}
-    return {col: 0.5 for col in FEATURE_COLS}
+        found = {c: float(rows[0][c] or centroid_features.get(c, 0.5)) for c in FEATURE_COLS}
+        logger.info("avg_features: resolved from similar tracks in BQ")
+        return found
+
+    logger.info("avg_features: track names not matched in BQ — using mood centroid features")
+    return centroid_features
 
 
 def log_to_bigquery(
@@ -246,7 +261,14 @@ def get_mood_centroid(
     client: bigquery.Client,
     mood: str,
     scaler_params: dict,
-) -> list[float]:
+) -> tuple[list[float], dict]:
+    """Return (scaled_vector_for_pinecone, raw_feature_dict_for_prompt).
+
+    The raw feature dict is the true centroid of the mood archetype — used as
+    fallback in compute_avg_features() so the prompt always reflects honest
+    mood-archetype audio characteristics even when Pinecone track names can't
+    be matched back to trending_historical by exact string.
+    """
     feature_avgs_sql = ", ".join(f"AVG(h.{c}) AS {c}" for c in FEATURE_COLS)
     query = f"""
         SELECT {feature_avgs_sql}
@@ -280,11 +302,12 @@ def get_mood_centroid(
         fb_rows = list(client.query(fallback_query).result())
         if not fb_rows:
             logger.error("No mood centroids available — using zero vector")
-            return [0.0] * len(FEATURE_COLS)
+            return [0.0] * len(FEATURE_COLS), {c: 0.5 for c in FEATURE_COLS}
         raw_centroid = [float(fb_rows[0][c] or 0.0) for c in FEATURE_COLS]
         logger.info(f"Fallback mood='{fb_rows[0]['mood_archetype']}'")
 
-    return scale_vector(raw_centroid, scaler_params)
+    raw_feature_dict = dict(zip(FEATURE_COLS, raw_centroid))
+    return scale_vector(raw_centroid, scaler_params), raw_feature_dict
 
 
 def query_pinecone_top_k(
@@ -329,6 +352,20 @@ def _season_for_date(d: date) -> str:
     return "autumn"
 
 
+
+# Russell's Circumplex Model canonical feature values for valence and energy.
+# These override the cluster centroid for the two archetype-defining axes so the
+# prompt never contradicts itself (e.g. "euphoric" with "melancholic minor key").
+# Tempo, danceability, acousticness come from the real centroid / similar tracks.
+_ARCHETYPE_VALENCE_ENERGY = {
+    "euphoric":    (0.80, 0.78),   # high-valence, high-energy
+    "melancholic": (0.22, 0.32),   # low-valence, low-energy
+    "aggressive":  (0.22, 0.82),   # low-valence, high-energy
+    "peaceful":    (0.75, 0.22),   # high-valence, low-energy
+    "groovy":      (0.65, 0.68),   # mid-high both
+}
+
+
 def build_prompt(
     primary_mood: str,
     mood_blend: dict,
@@ -337,8 +374,10 @@ def build_prompt(
 ) -> str:
     """Build a rich, season-aware MusicGen prompt.
 
-    Even if the predicted mood is the same across all 3 periods, the prompts
-    differ via seasonal texture, mood-blend secondary flavours, and audio features.
+    Valence and energy are anchored to the Russell's Circumplex archetype definition
+    so the prompt is always internally consistent (e.g. euphoric → uplifting major
+    key, not melancholic minor key). Tempo, danceability, acousticness come from the
+    real cluster centroid / similar tracks for variety.
     """
     season = _season_for_date(target_date)
     season_desc = SEASON_TEXTURE.get(season, "")
@@ -352,7 +391,12 @@ def build_prompt(
         secondary_flavor = BLEND_HINTS.get(mood, "")
         break
 
-    # Audio feature descriptors
+    # Valence and energy: use archetype canonical values, not raw centroid
+    canon_valence, canon_energy = _ARCHETYPE_VALENCE_ENERGY.get(
+        primary_mood, (0.5, 0.5)
+    )
+
+    # Tempo, danceability, acousticness: use real centroid data for variety
     tempo = avg_features.get("tempo", 120)
     if tempo < 90:
         tempo_desc = "slow tempo"
@@ -363,29 +407,27 @@ def build_prompt(
     else:
         tempo_desc = f"frenetic {tempo:.0f} BPM"
 
-    energy = avg_features.get("energy", 0.5)
-    if energy < 0.3:
+    if canon_energy < 0.3:
         energy_desc = "hushed and delicate"
-    elif energy < 0.5:
+    elif canon_energy < 0.5:
         energy_desc = "restrained energy"
-    elif energy < 0.7:
+    elif canon_energy < 0.7:
         energy_desc = "charged energy"
     else:
         energy_desc = "explosive high energy"
 
-    valence = avg_features.get("valence", 0.5)
-    if valence < 0.25:
+    if canon_valence < 0.25:
         valence_desc = "deeply minor key, anguished"
-    elif valence < 0.45:
+    elif canon_valence < 0.45:
         valence_desc = "melancholic minor key"
-    elif valence < 0.6:
+    elif canon_valence < 0.6:
         valence_desc = "bittersweet"
     else:
         valence_desc = "uplifting major key"
 
     dance = avg_features.get("danceability", 0.5)
     if dance < 0.3:
-        dance_desc = "floating non-metric feel"
+        dance_desc = "steady rhythmic pulse"
     elif dance < 0.55:
         dance_desc = "rhythmic pulse"
     elif dance < 0.75:
@@ -401,9 +443,6 @@ def build_prompt(
     else:
         acoustic_desc = "hybrid acoustic-electronic"
 
-    instr = avg_features.get("instrumentalness", 0.3)
-    instr_desc = "fully instrumental" if instr > 0.7 else None
-
     parts = [
         prefix,
         f"{season}, {season_desc}",
@@ -413,8 +452,6 @@ def build_prompt(
         dance_desc,
         acoustic_desc,
     ]
-    if instr_desc:
-        parts.append(instr_desc)
     if secondary_flavor:
         parts.append(secondary_flavor)
 
@@ -531,7 +568,7 @@ def main():
         logger.info(f"── Period: {period_name} | mood: {mood} | target: {target_dt} ──")
 
         # Get mood centroid → Pinecone top-K
-        centroid      = get_mood_centroid(bq_client, mood, scaler_params)
+        centroid, centroid_features = get_mood_centroid(bq_client, mood, scaler_params)
         similar_tracks = query_pinecone_top_k(index, centroid, mood)
 
         logger.info(f"  Top {len(similar_tracks)} similar tracks:")
@@ -539,7 +576,9 @@ def main():
             logger.info(f"    {t['score']:.3f}  {t['title']} — {t['artist']}")
 
         # Build season-aware blended prompt
-        avg_features = compute_avg_features(bq_client, similar_tracks)
+        # centroid_features is the fallback so prompt always reflects the actual mood
+        # archetype even when Pinecone track names can't be matched in trending_historical
+        avg_features = compute_avg_features(bq_client, similar_tracks, centroid_features)
         prompt = build_prompt(mood, mood_blend, avg_features, target_dt)
         logger.info(f"  Prompt: {prompt}")
 
