@@ -127,6 +127,46 @@
     audio { width:340px; accent-color:var(--aggressive); }
     .audio-card .week-label { font-size:.76rem; color:var(--muted); }
 
+    /* ── AUDIO 3-TILE GRID ── */
+    .audio-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+      gap:14px; margin-top:28px;
+      width:100%; max-width:880px;
+    }
+    .audio-tile {
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:14px; padding:18px;
+    }
+    .audio-tile .tile-period {
+      font-size:.66rem; font-weight:700; letter-spacing:.1em;
+      text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+    }
+    .audio-tile .tile-badge {
+      display:inline-block; border-radius:20px; padding:3px 12px;
+      font-size:.74rem; font-weight:700; margin-bottom:10px;
+    }
+    .audio-tile audio { width:100%; margin-top:8px; }
+    .audio-tile .tile-prompt {
+      font-size:.73rem; color:var(--muted); margin-top:8px;
+      font-style:italic; line-height:1.5;
+      display:-webkit-box; -webkit-line-clamp:2;
+      -webkit-box-orient:vertical; overflow:hidden;
+    }
+
+    /* ── SONG ARCHIVE ── */
+    .htab {
+      padding:5px 16px; border-radius:20px; font-size:.78rem; font-weight:600;
+      cursor:pointer; border:1px solid var(--border);
+      background:transparent; color:var(--muted); transition:all .15s;
+    }
+    .htab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .history-item {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:16px; margin-bottom:12px;
+    }
+
     /* ── SECTIONS ── */
     section { padding:72px 24px; max-width:1100px; margin:0 auto; }
     section + section { border-top:1px solid var(--border); }
@@ -341,17 +381,52 @@
   <div class="badge">Data Engineering · ML · GenAI Portfolio</div>
   <h1>Does the World Shape <span class="gradient-text">Music?</span></h1>
   <p>A 14-module data pipeline that proves world events influence music listening habits —
-     and generates a custom music clip to match next week's predicted mood.</p>
+     and generates three AI music clips — today's, this week's, and this month's predicted mood.</p>
 
-  <!-- AUDIO PLAYER — loaded by JS -->
-  <div class="audio-card" id="audio-card">
-    <div class="mood-badge" id="audio-mood">Loading…</div>
-    <div class="prompt-text" id="audio-prompt">Fetching AI-generated track…</div>
-    <audio id="audio-player" controls preload="metadata">
-      <source src="audio/track.wav" type="audio/wav" />
-      Your browser does not support the audio element.
-    </audio>
-    <div class="week-label" id="audio-week"></div>
+  <!-- AI SONG PREDICTIONS — loaded by JS -->
+  <div class="audio-grid" id="audio-grid">
+    <div class="audio-tile">
+      <div class="tile-period">Today's Prediction</div>
+      <div class="tile-badge" id="mood-today">—</div>
+      <audio id="player-today" controls preload="none">
+        <source src="audio/today.wav" type="audio/wav" />
+      </audio>
+      <div class="tile-prompt" id="prompt-today"></div>
+    </div>
+    <div class="audio-tile">
+      <div class="tile-period">This Week (Mon–Sun)</div>
+      <div class="tile-badge" id="mood-weekly">—</div>
+      <audio id="player-weekly" controls preload="none">
+        <source src="audio/weekly.wav" type="audio/wav" />
+      </audio>
+      <div class="tile-prompt" id="prompt-weekly"></div>
+    </div>
+    <div class="audio-tile" style="border-color:rgba(88,166,255,.3)">
+      <div class="tile-period" style="color:var(--accent)">This Month</div>
+      <div class="tile-badge" id="mood-monthly">—</div>
+      <audio id="player-monthly" controls preload="none">
+        <source src="audio/monthly.wav" type="audio/wav" />
+      </audio>
+      <div class="tile-prompt" id="prompt-monthly"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ──────────────── SONG ARCHIVE ──────────────── -->
+<div id="song-archive" style="background:#08090f; border-top:1px solid #21262d; padding:40px 24px 24px;">
+  <div style="max-width:1100px; margin:0 auto;">
+    <div class="section-label">AI Song Archive</div>
+    <h2 style="margin-bottom:6px;">Past Predictions, Stored Forever</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:24px;max-width:600px;">
+      Every song committed to GitHub Pages — no cloud costs, plays directly in browser.
+      Daily, weekly, and monthly clips archived automatically each pipeline run.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button class="htab active" id="htab-monthly" onclick="filterHistory('monthly')">Monthly</button>
+      <button class="htab"        id="htab-weekly"  onclick="filterHistory('weekly')">Weekly</button>
+      <button class="htab"        id="htab-today"   onclick="filterHistory('today')">Daily</button>
+    </div>
+    <div id="history-list" style="color:var(--muted); font-size:.9rem;">Loading archive…</div>
   </div>
 </div>
 
@@ -389,7 +464,7 @@
     <div style="max-width:720px;">
       <div class="section-label">The Question</div>
       <h2 style="font-size:2rem; font-weight:800; margin-bottom:20px; line-height:1.2;">
-        What if news headlines could predict<br>next week's Billboard chart mood?
+        What if news headlines could predict<br>today's, this week's, and this month's chart mood?
       </h2>
       <p style="color:#8b949e; font-size:1rem; line-height:1.8; margin-bottom:16px;">
         The idea started from a hunch: music feels different during turbulent news cycles. When tensions rise —
@@ -404,7 +479,7 @@
       </p>
       <p style="color:#e6edf3; font-size:1rem; line-height:1.8; font-weight:500;">
         The result? <span id="inline-accuracy" style="color:#06d6a0; font-weight:700;">92% accuracy</span> on the test set —
-        and an AI-generated music clip that sounds like what next week's charts should feel like.
+        and three AI-generated music clips: today's vibe, this week's sound, and this month's predicted mood.
       </p>
     </div>
   </section>
@@ -596,7 +671,7 @@
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M12</span>
-            <span style="font-size:.84rem; color:#8b949e;">XGBoost multiclass with lag-1 features — this week's emotions predict next week's chart mood</span>
+            <span style="font-size:.84rem; color:#8b949e;">XGBoost multiclass — 23 features (10 emotions + 5 mood pcts + 8 seasonal/temporal), class-balanced, 3-period inference: today · weekly · monthly</span>
           </div>
         </div>
       </div>
@@ -610,11 +685,11 @@
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72km; font-weight:700; flex-shrink:0;">13b</span>
-            <span style="font-size:.84rem; color:#8b949e;">MusicGen-small (Facebook/Meta) — top-10 similar tracks averaged into an acoustic prompt, natural language description generated, 500 tokens = 10s of audio</span>
+            <span style="font-size:.84rem; color:#8b949e;">MusicGen-small (Facebook/Meta) — runs 3× per pipeline (today/weekly/monthly), each with a season-aware blended prompt from mood probabilities + audio features, 500 tokens = 10s WAV</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13c</span>
-            <span style="font-size:.84rem; color:#8b949e;">WAV → GCS → BigQuery — audio uploaded to Cloud Storage, metadata logged to generated_tracks table, surfaced via dbt staging view</span>
+            <span style="font-size:.84rem; color:#8b949e;">3 WAVs (today/weekly/monthly) → GCS → BigQuery generated_tracks (period + mood_blend_json) → dbt staging → GitHub Pages history archive</span>
           </div>
         </div>
       </div>
@@ -733,9 +808,9 @@
         <rect x="679" y="365" width="171" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
         <text x="764" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M12 · XGBOOST + SHAP</text>
         <text x="764" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">🤖</text>
-        <text x="764" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">Lag-1 prediction</text>
-        <text x="764" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">92% accuracy</text>
-        <text x="764" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">next week's mood</text>
+        <text x="764" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">23 features · class-balanced</text>
+        <text x="764" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">today · weekly · monthly</text>
+        <text x="764" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">seasonal inference</text>
 
         <!-- arrow 4 -->
         <line x1="430" y1="480" x2="430" y2="512" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
@@ -757,7 +832,7 @@
         <text x="647" y="540" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#06d6a0" text-anchor="middle" letter-spacing="1.2">M13b · MUSICGEN AUDIO SYNTHESIS</text>
         <text x="647" y="560" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">🎼</text>
         <text x="647" y="580" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">facebook/musicgen-small</text>
-        <text x="647" y="596" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">acoustic avg → NL prompt → 10s WAV → GCS</text>
+        <text x="647" y="596" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">3× per run · season-aware prompt · GCS history</text>
 
         <!-- arrow 5 -->
         <line x1="430" y1="610" x2="430" y2="642" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
@@ -783,7 +858,7 @@
         <text x="707" y="670" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#8338ec" text-anchor="middle" letter-spacing="1.2">GITHUB PAGES (THIS SITE)</text>
         <text x="707" y="690" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">🌐</text>
         <text x="707" y="710" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">Static JSON + Plotly.js</text>
-        <text x="707" y="726" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">auto-updated · daily push</text>
+        <text x="707" y="726" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">3 songs + history archive · daily push</text>
 
         <!-- ── ORCHESTRATION BAR ───────────────────────────────────────── -->
         <rect x="10" y="757" width="840" height="40" rx="8" fill="rgba(88,166,255,.05)" stroke="rgba(88,166,255,.18)" stroke-width="1"/>
@@ -1073,8 +1148,9 @@
   <div class="section-label">Module 12 · XGBoost + Feature Importance</div>
   <h2>AI Mood Prediction</h2>
   <p class="subtitle">
-    Lag-1 XGBoost model: this week's news emotion → next week's dominant audio mood.
-    Feature importance shows which emotions correlate most strongly with each mood archetype.
+    23-feature XGBoost model (10 emotions + 5 mood distributions + 8 seasonal/temporal features),
+    class-balanced training. Runs 3 inferences per pipeline: today, this week, and this month.
+    Feature importance shows which signals drive each mood archetype.
   </p>
 
   <div class="metrics" id="pred-metrics">
@@ -1137,10 +1213,10 @@
   <div class="section-label">Module 13 · MusicGen + Pinecone</div>
   <h2>AI-Generated Music</h2>
   <p class="subtitle">
-    The pipeline queries a Pinecone vector index of 1,011 real tracks (30 Librosa features),
-    retrieves the 10 most sonically similar to next week's predicted mood,
-    computes their average audio DNA, and feeds a natural-language prompt to
-    <strong>facebook/musicgen-small</strong> to generate a 10-second clip.
+    The pipeline runs MusicGen three times per day — once for today, once for this week, once for this month.
+    Each run queries a Pinecone vector index of 1,011 real tracks (30 Librosa features),
+    retrieves the 10 most sonically similar tracks, and builds a season-aware blended prompt from
+    the full mood probability distribution before feeding it to <strong>facebook/musicgen-small</strong>.
   </p>
 
   <div class="chart-grid" style="align-items: start;">
@@ -1372,18 +1448,36 @@ function moodChip(mood) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Audio card
+// Audio 3-tile grid (today / weekly / monthly)
 // ──────────────────────────────────────────────────────────────
 async function initAudio() {
   try {
     const tracks = await load('generated_tracks.json');
     if (!tracks.length) return;
-    const t = tracks[0];
-    document.getElementById('audio-mood').textContent = t.mood_archetype.toUpperCase();
-    document.getElementById('audio-mood').style.background = MOOD_COLORS[t.mood_archetype] || '#888';
-    document.getElementById('audio-prompt').textContent = `"${t.prompt_text}"`;
-    document.getElementById('audio-week').textContent = `Week of ${t.week_start} · ${parseFloat(t.duration_seconds).toFixed(1)}s`;
-  } catch(e) { console.warn('Audio card:', e); }
+
+    // Build period lookup; fallback to tracks[0] for any missing period
+    const byPeriod = {};
+    for (const t of tracks) {
+      if (t.period && !byPeriod[t.period]) byPeriod[t.period] = t;
+    }
+    const fallback = tracks[0];
+
+    const fill = (period, suffix) => {
+      const t = byPeriod[period] || fallback;
+      if (!t) return;
+      const badge = document.getElementById(`mood-${suffix}`);
+      if (!badge) return;
+      badge.textContent = t.mood_archetype.toUpperCase();
+      badge.style.background = MOOD_COLORS[t.mood_archetype] || '#888';
+      badge.style.color = ['euphoric','peaceful'].includes(t.mood_archetype) ? '#000' : '#fff';
+      const promptEl = document.getElementById(`prompt-${suffix}`);
+      if (promptEl) promptEl.textContent = `"${t.prompt_text}"`;
+    };
+
+    fill('today',   'today');
+    fill('weekly',  'weekly');
+    fill('monthly', 'monthly');
+  } catch(e) { console.warn('Audio tiles:', e); }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -2062,6 +2156,49 @@ async function initRunHistory() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Song history archive
+// ──────────────────────────────────────────────────────────────
+async function initHistory() {
+  try {
+    const history = await load('song_history.json');
+    window._songHistory = history;
+    filterHistory('monthly');
+  } catch(e) {
+    const el = document.getElementById('history-list');
+    if (el) el.textContent = 'No archive yet — songs save automatically each pipeline run.';
+  }
+}
+
+window.filterHistory = (period) => {
+  ['monthly','weekly','today'].forEach(p => {
+    const btn = document.getElementById(`htab-${p}`);
+    if (btn) btn.classList.toggle('active', p === period);
+  });
+  const items = (window._songHistory || []).filter(s => s.period === period);
+  const el = document.getElementById('history-list');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<p style="color:var(--muted)">No entries yet for this period.</p>';
+    return;
+  }
+  el.innerHTML = items.map(s => `
+    <div class="history-item">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span class="mood-chip" style="background:${MOOD_COLORS[s.mood_archetype]||'#888'};
+          color:${['euphoric','peaceful'].includes(s.mood_archetype)?'#000':'#fff'}">
+          ${s.mood_archetype || '—'}
+        </span>
+        <strong>${s.label}</strong>
+        ${s.confidence ? `<span style="color:var(--muted);font-size:.78rem;margin-left:auto">${(s.confidence*100).toFixed(0)}% conf</span>` : ''}
+      </div>
+      <audio controls preload="none" style="width:100%;margin-bottom:8px">
+        <source src="${s.audio_path}" type="audio/wav" />
+      </audio>
+      <div style="font-size:.76rem;color:var(--muted);font-style:italic">"${s.prompt_text}"</div>
+    </div>`).join('');
+};
+
+// ──────────────────────────────────────────────────────────────
 // Boot — run all in parallel, show errors gracefully
 // ──────────────────────────────────────────────────────────────
 function errEl(id, e) {
@@ -2075,7 +2212,8 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
 
 (async () => {
   await Promise.allSettled([
-    initAudio()          .catch(e => errEl('audio-card', e)),
+    initAudio()          .catch(e => errEl('audio-grid', e)),
+    initHistory()        .catch(e => console.warn('Song history:', e)),
     initHeatmap()        .catch(e => errEl('chart-heatmap', e)),
     initTimeline()       .catch(e => errEl('chart-timeline', e)),
     initPrediction()     .catch(e => errEl('chart-shap', e)),
