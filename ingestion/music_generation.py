@@ -96,21 +96,37 @@ SEASON_TEXTURE = {
 # ── BQ helpers ───────────────────────────────────────────────────────────────────
 
 def ensure_gen_table(client: bigquery.Client) -> None:
+    """Create generated_tracks with current schema. If the table exists but is
+    missing the 'period' column (old schema), drop and recreate it."""
+    try:
+        existing = client.get_table(GEN_TABLE)
+        existing_cols = {f.name for f in existing.schema}
+        if "period" not in existing_cols:
+            logger.warning("generated_tracks missing 'period' column — dropping and recreating")
+            client.delete_table(GEN_TABLE)
+            import time as _time; _time.sleep(5)
+    except Exception:
+        pass  # table doesn't exist yet — create below
     table = bigquery.Table(GEN_TABLE, schema=GEN_SCHEMA)
     client.create_table(table, exists_ok=True)
     logger.info(f"Table ready: {GEN_TABLE}")
 
 
 def weekly_song_exists_this_week(client: bigquery.Client, week_start: str) -> bool:
-    """Return True if a weekly song has already been generated for the current week."""
+    """Return True if a weekly song has already been generated for the current week.
+    Returns False on any error (e.g. table missing period column = old schema)."""
     query = f"""
         SELECT COUNT(*) AS n
         FROM `{GEN_TABLE}`
         WHERE period = 'weekly'
           AND CAST(week_start AS STRING) = '{week_start}'
     """
-    rows = list(client.query(query).result())
-    return rows[0]["n"] > 0 if rows else False
+    try:
+        rows = list(client.query(query).result())
+        return rows[0]["n"] > 0 if rows else False
+    except Exception as e:
+        logger.warning(f"weekly_song_exists_this_week check failed ({e}) — assuming no song exists")
+        return False
 
 
 def fetch_predictions_by_period(client: bigquery.Client) -> dict:
