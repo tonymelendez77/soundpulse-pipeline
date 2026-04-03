@@ -503,9 +503,10 @@
           </div>
         </div>
         <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
-          The backbone of the emotion analysis. Pulled 6,348 articles across topics like
-          politics, technology, culture, and science — going back 16 weeks. Every article
-          runs through a DistilRoBERTa transformer fine-tuned on 7 emotions.
+          The backbone of the emotion analysis. Pulled 20,000+ articles across topics like
+          politics, technology, culture, and science — going back 52 weeks. Every article
+          runs through a DistilRoBERTa transformer fine-tuned on 7 emotions. Smart resume
+          automatically backfills any missed days on the next pipeline run.
         </p>
         <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
           REST API · HTTPS · Paginated · Daily batch pull
@@ -526,7 +527,7 @@
           audio features to understand the sonic profile of what's charting.
         </p>
         <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
-          billboard.py library · Weekly pull · Historical backfill 3 months
+          Billboard scraper · Weekly pull · Historical backfill 12 months · Smart resume (7-day gap fill)
         </div>
       </div>
 
@@ -598,7 +599,7 @@
           A post going viral in r/music is often an early signal of a song breaking through.
         </p>
         <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
-          PRAW (Python Reddit API Wrapper) · Streaming · OAuth2
+          PRAW (Python Reddit API Wrapper) · Streaming · OAuth2 · Smart resume (7-day gap fill)
         </div>
       </div>
 
@@ -633,7 +634,7 @@
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M1</span>
-            <span style="font-size:.84rem; color:#8b949e;">News + Reddit + YouTube — REST APIs, daily batch ingestion to GCS as JSONL, then loaded to BigQuery</span>
+            <span style="font-size:.84rem; color:#8b949e;">News + Reddit + YouTube — REST APIs, daily batch ingestion to GCS as JSONL, then loaded to BigQuery · Smart resume auto-backfills Billboard, News &amp; Reddit for any missed days</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M2</span>
@@ -659,11 +660,11 @@
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M9</span>
-            <span style="font-size:.84rem; color:#8b949e;">DistilRoBERTa (j-hartmann model) — 7-emotion classification on 6,348 articles, batched in 64s, GPU-optional</span>
+            <span style="font-size:.84rem; color:#8b949e;">DistilRoBERTa (j-hartmann model) — 7-emotion classification on 20,000+ articles across 52 weeks, batched in 64s, GPU-optional</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M10</span>
-            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=5 archetypes named by centroid profile: euphoric, melancholic, aggressive, peaceful, groovy</span>
+            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=5 archetypes scored via Russell's Circumplex Model (valence × arousal quadrants): euphoric, melancholic, aggressive, peaceful, groovy</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M11</span>
@@ -799,7 +800,7 @@
         <text x="557" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">📐</text>
         <text x="557" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">50 emotion-mood pairs</text>
         <text x="557" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">BigQuery CORR()</text>
-        <text x="557" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">16-week window</text>
+        <text x="557" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">52-week window</text>
         <!-- horiz arrow M11→M12 -->
         <line x1="659" y1="422" x2="671" y2="422" stroke="#58a6ff" stroke-width="1.5"/>
         <polygon points="669,417 677,422 669,427" fill="#58a6ff"/>
@@ -862,7 +863,7 @@
 
         <!-- ── ORCHESTRATION BAR ───────────────────────────────────────── -->
         <rect x="10" y="757" width="840" height="40" rx="8" fill="rgba(88,166,255,.05)" stroke="rgba(88,166,255,.18)" stroke-width="1"/>
-        <text x="430" y="772" font-family="-apple-system,sans-serif" font-size="10" font-weight="700" fill="#58a6ff" text-anchor="middle">⏰  Prefect Cloud  ·  GitHub Actions worker  ·  Daily 02:00 UTC  ·  14 modules in dependency order  ·  auto-retry on failure</text>
+        <text x="430" y="772" font-family="-apple-system,sans-serif" font-size="10" font-weight="700" fill="#58a6ff" text-anchor="middle">⏰  Prefect Cloud  ·  GitHub Actions worker  ·  Daily 02:00 UTC  ·  14 modules in dependency order  ·  auto-retry on failure  ·  smart resume (7-day gap backfill)</text>
         <text x="430" y="789" font-family="-apple-system,sans-serif" font-size="9.5" fill="#4d5566" text-anchor="middle">soundpulse-production (BigQuery)  ·  soundpulse-bucket (GCS)  ·  Pinecone serverless  ·  GitHub Pages static export</text>
       </svg>
     </div>
@@ -1022,7 +1023,7 @@
           <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Does world sentiment actually correlate with music mood?</p>
           <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
             Each cell shows the Pearson r between a news emotion score (y-axis) and the percentage of trending songs
-            assigned to a mood archetype (x-axis), across all 16 weeks. Red = positive correlation, blue = negative.
+            assigned to a mood archetype (x-axis), across all 52 weeks. Red = positive correlation, blue = negative.
             Cells marked ★ are statistically notable (|r| ≥ 0.3). The strongest positive correlation tells you which
             emotion most reliably predicts which music mood — and the answer might surprise you.
             Look for the <strong>disgust → aggressive</strong> and <strong>neutral → aggressive</strong> pairs.
@@ -1122,7 +1123,7 @@
   <div class="section-label">Module 11 · Pearson r</div>
   <h2>News Emotions → Music Mood Correlation</h2>
   <p class="subtitle">
-    Pearson r computed between 16 weeks of DistilRoBERTa emotion scores from Guardian news
+    Pearson r computed between 52 weeks of DistilRoBERTa emotion scores from Guardian news
     and KMeans audio mood archetype percentages. Notable pairs (|r| ≥ 0.3) are marked ★.
   </p>
   <div class="card">
@@ -1195,7 +1196,7 @@
   <div class="section-label">Module 9 · DistilRoBERTa</div>
   <h2>News Sentiment by Topic</h2>
   <p class="subtitle">
-    6,348 Guardian articles classified with j-hartmann/emotion-english-distilroberta-base (7 emotions).
+    20,000+ Guardian articles classified with j-hartmann/emotion-english-distilroberta-base (7 emotions) across 52 weeks.
     Aggregated weekly by topic into composite anxiety, tension, and positivity indices.
   </p>
   <div class="card">
@@ -1733,7 +1734,7 @@ async function initTrends() {
   const sources = [...new Set(data.map(d => d.chart_source))];
   const moodOrder = ['euphoric','melancholic','aggressive','peaceful','groovy'];
   const allWeeks = [...new Set(data.map(d => d.week_start))].sort();
-  const recentWeeks = new Set(allWeeks.slice(-16));
+  const recentWeeks = new Set(allWeeks.slice(-52));
 
   const timeTraces = sources.map(src => {
     const rows = data.filter(d => d.chart_source === src && recentWeeks.has(d.week_start))
