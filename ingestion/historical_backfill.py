@@ -32,8 +32,8 @@ DAYS_BACK_END    = 8
 WEEKS_BACK_START = 52    # max music history to fetch (smart resume skips already-collected)
 WEEKS_BACK_END   = 2
 
-SKIP_NEWS  = True        # Guardian daily quota exhausted — re-run tomorrow with False
-SKIP_MUSIC = False       # set True to skip Billboard/iTunes/Librosa fetch
+SKIP_NEWS  = False        # Guardian daily quota exhausted — re-run tomorrow with False
+SKIP_MUSIC = True       # set True to skip Billboard/iTunes/Librosa fetch
 
 GUARDIAN_KEY = os.getenv("GUARDIAN_API_KEY")
 GUARDIAN_URL = "https://content.guardianapis.com/search"
