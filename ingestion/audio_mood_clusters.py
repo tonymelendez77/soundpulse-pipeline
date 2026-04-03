@@ -98,38 +98,85 @@ ARCHETYPE_NAMES = ["euphoric", "melancholic", "aggressive", "peaceful", "groovy"
 
 def name_clusters(centroids_df: pd.DataFrame, k: int) -> dict[int, str]:
     """
-    Assign archetype names to cluster IDs using centroid feature scores.
-    Each archetype wins the cluster it best matches (greedy assignment).
-    """
-    # Normalise centroids to 0-1 range for scoring
-    norm = (centroids_df - centroids_df.min()) / (centroids_df.max() - centroids_df.min() + 1e-9)
+    Assign archetype names using ABSOLUTE centroid values and Russell's Circumplex Model.
 
-    # Scoring rules per archetype (higher = more likely to be that archetype)
+    Russell's model maps mood onto two axes:
+      Valence  (0=negative / 1=positive)
+      Arousal  (0=calm     / 1=energetic)
+
+    This gives 4 quadrants + a groove diagonal:
+      High-V + High-E → Euphoric  (happy & excited)
+      Low-V  + High-E → Aggressive (tense & intense)
+      Low-V  + Low-E  → Melancholic (sad & slow)
+      High-V + Low-E  → Peaceful  (content & calm)
+      High-D + Mid-E  → Groovy    (danceable, not extreme)
+
+    IMPORTANT: we use raw (absolute) centroid values, NOT intra-centroid
+    normalisation. Normalising within the centroid set destroys meaning when
+    all clusters share similar feature ranges (e.g. chart music is uniformly
+    high-energy), causing every cluster to appear equally extreme and making
+    the highest-energy centroid always win "aggressive" regardless of valence.
+    """
+    def _quadrant_score(v: float, e: float) -> tuple[float, float, float, float]:
+        """Return (high_v, low_v, high_e, low_e) as soft quadrant memberships [0,1]."""
+        high_v = max(0.0, (v - 0.5) * 2.0)
+        low_v  = max(0.0, (0.5 - v) * 2.0)
+        high_e = max(0.0, (e - 0.5) * 2.0)
+        low_e  = max(0.0, (0.5 - e) * 2.0)
+        return high_v, low_v, high_e, low_e
+
     def score(row, archetype):
-        v  = row.get("valence", 0.5)
-        e  = row.get("energy", 0.5)
-        t  = row.get("tempo", 0.5)          # already normalised
-        ac = row.get("acousticness", 0.5)
-        d  = row.get("danceability", 0.5)
-        lo = row.get("loudness", 0.5)
-        ins = row.get("instrumentalness", 0.5)
+        # All values are absolute (0-1 for most Spotify features)
+        v   = float(row.get("valence", 0.5))
+        e   = float(row.get("energy", 0.5))
+        d   = float(row.get("danceability", 0.5))
+        ac  = float(row.get("acousticness", 0.1))
+        lo  = float(row.get("loudness", -10.0))
+        ins = float(row.get("instrumentalness", 0.0))
+
+        # Loudness: typical chart range -20..0 dB → 0..1
+        lo_n = max(0.0, min(1.0, (lo + 20.0) / 20.0))
+
+        high_v, low_v, high_e, low_e = _quadrant_score(v, e)
+
         if archetype == "euphoric":
-            return v * 0.4 + e * 0.3 + t * 0.15 + d * 0.15
-        if archetype == "melancholic":
-            return (1 - v) * 0.4 + (1 - e) * 0.3 + ac * 0.2 + (1 - t) * 0.1
+            # Q1: positive + energetic. Requires both valence AND energy above midpoint.
+            base = high_v * 0.45 + high_e * 0.35 + d * 0.20
+            # Gate: if valence is genuinely low, this cluster is not euphoric
+            gate = max(0.1, high_v)
+            return base * gate
+
         if archetype == "aggressive":
-            return (1 - v) * 0.3 + e * 0.35 + lo * 0.25 + (1 - ac) * 0.1
+            # Q2: negative + energetic. Requires low valence AND high energy.
+            base = low_v * 0.50 + high_e * 0.35 + lo_n * 0.15
+            # Gate: penalise heavily if valence is actually above midpoint
+            gate = max(0.05, low_v)
+            return base * gate
+
+        if archetype == "melancholic":
+            # Q3: negative + calm. Acoustic, slow, sad.
+            base = low_v * 0.45 + low_e * 0.30 + ac * 0.15 + (1.0 - d) * 0.10
+            gate = max(0.05, low_v * low_e)
+            return base * (1.0 + gate)
+
         if archetype == "peaceful":
-            return ac * 0.35 + (1 - e) * 0.25 + ins * 0.25 + (1 - lo) * 0.15
+            # Q4: positive + calm. Acoustic, gentle, content.
+            base = high_v * 0.40 + low_e * 0.30 + ac * 0.20 + ins * 0.10
+            gate = max(0.05, high_v)
+            return base * gate
+
         if archetype == "groovy":
-            return d * 0.45 + e * 0.25 + v * 0.2 + (1 - ins) * 0.1
+            # Diagonal: high danceability, moderate energy (peaks at ~0.65), any valence.
+            e_groove = max(0.0, 1.0 - abs(e - 0.65) * 3.0)  # peaks at e=0.65, falls off
+            return d * 0.55 + e_groove * 0.25 + max(0.0, v - 0.35) * 0.20
+
         return 0.0
 
     archetypes_to_assign = ARCHETYPE_NAMES[:k]  # only as many as clusters
 
-    # Build score matrix
+    # Build score matrix using raw (non-normalised) centroids
     score_matrix = pd.DataFrame(
-        {arch: [score(norm.iloc[i], arch) for i in range(k)]
+        {arch: [score(centroids_df.iloc[i], arch) for i in range(k)]
          for arch in archetypes_to_assign}
     )
 
