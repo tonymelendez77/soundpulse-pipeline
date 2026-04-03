@@ -354,6 +354,53 @@ def export_song_history(client: bigquery.Client) -> None:
     write_json(DATA_DIR / "song_history.json", history)
 
 
+# ── Prediction accuracy (feedback loop) ──────────────────────────────────────────
+
+def export_prediction_accuracy(client: bigquery.Client) -> None:
+    """Export rolling prediction accuracy from prediction_accuracy table.
+    Falls back to computing it live from ml_predictions if the table is empty."""
+    try:
+        data = bq_to_json(client, f"""
+            SELECT
+                CAST(week_start AS STRING)  AS week_start,
+                period,
+                predicted_mood,
+                actual_mood,
+                correct,
+                confidence,
+                rolling_8w_acc,
+                rolling_8w_n,
+                CAST(validated_at AS STRING) AS validated_at
+            FROM `{PROJECT}.music_analytics.prediction_accuracy`
+            ORDER BY week_start DESC
+            LIMIT 100
+        """)
+    except Exception:
+        data = []
+
+    if not data:
+        # Fallback: compute from ml_predictions directly
+        data = bq_to_json(client, f"""
+            SELECT
+                CAST(week_start AS STRING)  AS week_start,
+                period,
+                predicted_mood,
+                actual_mood,
+                correct,
+                confidence,
+                NULL AS rolling_8w_acc,
+                NULL AS rolling_8w_n,
+                CAST(ingested_at AS STRING)  AS validated_at
+            FROM `{PROJECT}.music_analytics.ml_predictions`
+            WHERE period IS NOT NULL
+              AND correct IS NOT NULL
+            ORDER BY week_start DESC
+            LIMIT 100
+        """)
+
+    write_json(DATA_DIR / "prediction_accuracy.json", data)
+
+
 # ── Meta ─────────────────────────────────────────────────────────────────────────
 
 def write_meta(exports: dict) -> None:
@@ -402,6 +449,11 @@ def main():
     export_news_sentiment(bq_client)
     with open(DATA_DIR / "news_sentiment.json") as f:
         counts["news_sentiment"] = len(json.load(f))
+
+    logger.info("Exporting prediction accuracy (rolling feedback loop)...")
+    export_prediction_accuracy(bq_client)
+    with open(DATA_DIR / "prediction_accuracy.json") as f:
+        counts["prediction_accuracy"] = len(json.load(f))
 
     logger.info("Exporting generated tracks...")
     by_period = export_generated_tracks(bq_client)

@@ -1150,8 +1150,8 @@
   <h2>AI Mood Prediction</h2>
   <p class="subtitle">
     23-feature XGBoost model (10 emotions + 5 mood distributions + 8 seasonal/temporal features),
-    class-balanced training. Runs 3 inferences per pipeline: today, this week, and this month.
-    Feature importance shows which signals drive each mood archetype.
+    class-balanced with recency decay weighting. Runs 3 inferences per pipeline: today, this week, and this month.
+    Each week, outcomes are automatically validated against actual chart data — closing the feedback loop.
   </p>
 
   <div class="metrics" id="pred-metrics">
@@ -1159,6 +1159,28 @@
     <div class="metric"><div class="value">—</div><div class="label">Avg Confidence</div></div>
     <div class="metric"><div class="value">—</div><div class="label">Weeks Evaluated</div></div>
     <div class="metric"><div class="value">—</div><div class="label">Correct Predictions</div></div>
+  </div>
+
+  <!-- Rolling accuracy (feedback loop) -->
+  <div id="rolling-accuracy-bar" style="margin:18px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 22px; display:none;">
+    <div style="font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin-bottom:10px;">Live Feedback Loop · Rolling 8-Week Accuracy</div>
+    <div style="display:flex; gap:28px; flex-wrap:wrap; align-items:center;">
+      <div style="text-align:center;">
+        <div id="rolling-acc-value" style="font-size:2rem; font-weight:800; color:#06d6a0;">—</div>
+        <div style="font-size:.72rem; color:var(--muted); margin-top:2px;">Rolling Accuracy</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="rolling-acc-n" style="font-size:2rem; font-weight:800; color:#58a6ff;">—</div>
+        <div style="font-size:.72rem; color:var(--muted); margin-top:2px;">Predictions Validated</div>
+      </div>
+      <div style="flex:1; min-width:200px;">
+        <div style="font-size:.82rem; color:var(--muted); line-height:1.6;">
+          Every week after a prediction passes, the pipeline looks up the actual dominant mood from the Billboard charts
+          and compares it to what was predicted. This rolling score updates automatically — no manual labelling.
+        </div>
+      </div>
+    </div>
+    <div id="rolling-acc-history" style="margin-top:14px; display:flex; flex-wrap:wrap; gap:8px;"></div>
   </div>
 
   <div class="chart-grid">
@@ -2211,6 +2233,44 @@ function errEl(id, e) {
 probeDashboard(8501, 'dash1-frame', 'dash1-fallback', 'dash1-status');
 probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
 
+// ──────────────────────────────────────────────────────────────
+// Rolling prediction accuracy (feedback loop)
+// ──────────────────────────────────────────────────────────────
+async function initRollingAccuracy() {
+  try {
+    const data = await load('prediction_accuracy.json');
+    if (!data || !data.length) return;
+
+    // Find the most recent row with rolling_8w_acc
+    const withRolling = data.filter(d => d.rolling_8w_acc != null);
+    if (withRolling.length) {
+      const latest = withRolling[0];
+      const pct    = (latest.rolling_8w_acc * 100).toFixed(0) + '%';
+      document.getElementById('rolling-acc-value').textContent = pct;
+      document.getElementById('rolling-acc-n').textContent     = latest.rolling_8w_n;
+    }
+
+    // Show last 12 validated predictions as colour-coded badges
+    const bar = document.getElementById('rolling-acc-history');
+    data.slice(0, 12).forEach(d => {
+      if (d.correct == null) return;
+      const badge = document.createElement('span');
+      badge.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+        border-radius:20px;font-size:.72rem;font-weight:600;
+        background:${d.correct ? 'rgba(6,214,160,.12)' : 'rgba(239,71,111,.12)'};
+        border:1px solid ${d.correct ? '#06d6a0' : '#ef476f'};
+        color:${d.correct ? '#06d6a0' : '#ef476f'}`;
+      badge.textContent = `${d.week_start?.slice(0,7)} ${d.period}: ${d.predicted_mood}`;
+      badge.title       = `Actual: ${d.actual_mood} · ${d.correct ? '✓ correct' : '✗ wrong'}`;
+      bar.appendChild(badge);
+    });
+
+    document.getElementById('rolling-accuracy-bar').style.display = 'block';
+  } catch(e) {
+    console.warn('Rolling accuracy:', e);
+  }
+}
+
 (async () => {
   await Promise.allSettled([
     initAudio()          .catch(e => errEl('audio-grid', e)),
@@ -2221,6 +2281,7 @@ probeDashboard(8502, 'dash2-frame', 'dash2-fallback', 'dash2-status');
     initTrends()         .catch(e => errEl('chart-radar', e)),
     initSentiment()      .catch(e => errEl('chart-anxiety', e)),
     initAITrack()        .catch(e => errEl('prompt-breakdown', e)),
+    initRollingAccuracy().catch(e => console.warn('Rolling accuracy:', e)),
     initProcessSection() .catch(e => console.warn('Process section:', e)),
     initRunHistory()     .catch(e => console.warn('Run history:', e)),
   ]);
