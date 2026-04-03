@@ -473,8 +473,22 @@ def main():
     this_monday = today - timedelta(days=today.weekday())
     week_start_str = str(this_monday)
 
-    # 5. Generate one song per period
+    # Decide which periods are due today:
+    #   today   — always
+    #   weekly  — only on Monday (weekday 0)
+    #   monthly — only on the 1st of the month
+    periods_due = {"today"}
+    if today.weekday() == 0:
+        periods_due.add("weekly")
+    if today.day == 1:
+        periods_due.add("monthly")
+    logger.info(f"Periods due today ({today}): {periods_due}")
+
+    # 5. Generate one song per period (only when due)
     for period_name, pred in predictions.items():
+        if period_name not in periods_due:
+            logger.info(f"  Skipping [{period_name}] — not due today")
+            continue
         mood           = pred["predicted_mood"]
         mood_blend_str = pred["mood_blend_json"]
         target_dt      = date.fromisoformat(pred["target_date"])
