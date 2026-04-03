@@ -27,7 +27,7 @@ PROJECT          = "soundpulse-production"
 DATASET          = "music_analytics"
 BUCKET           = "soundpulse-prod-raw-lake"
 BASE_DIR         = Path(__file__).parent.parent
-DAYS_BACK_START  = 365
+DAYS_BACK_START  = 182   # Oct 2025 → now (Apr–Oct 2025 already in BQ from previous run)
 DAYS_BACK_END    = 8
 WEEKS_BACK_START = 52
 WEEKS_BACK_END   = 2
@@ -215,7 +215,8 @@ def fetch_guardian_day(date_str: str) -> list[dict]:
         return []
     ingested_at  = datetime.now(tz=timezone.utc).isoformat()
     all_articles = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    # max_workers=2 (not 4) to stay well under Guardian's burst rate limit
+    with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {executor.submit(fetch_guardian_topic, date_str, item, ingested_at): item
                    for item in GUARDIAN_TOPICS}
         for future in as_completed(futures):
@@ -225,7 +226,7 @@ def fetch_guardian_day(date_str: str) -> list[dict]:
 
 def run_news_backfill() -> list[dict]:
     total_days = DAYS_BACK_START - DAYS_BACK_END
-    logger.info(f"Starting Guardian news backfill: {total_days} days (parallel)")
+    logger.info(f"Starting Guardian news backfill: {total_days} days (rate-limited)")
     all_articles = []
     batch        = []
 
@@ -235,6 +236,7 @@ def run_news_backfill() -> list[dict]:
         articles = fetch_guardian_day(date_str)
         all_articles.extend(articles)
         batch.extend(articles)
+        time.sleep(0.5)   # 0.5s between days keeps requests well under Guardian's rate limit
 
         days_done = DAYS_BACK_START - day_num
         if days_done % 7 == 0:
@@ -522,17 +524,60 @@ def run_audio_backfill(billboard_songs: list) -> list:
 
 
 # ============================================================
+# GAP DETECTION — smart resume from last collected date
+# ============================================================
+
+def detect_news_start(client: bigquery.Client) -> int:
+    """Return how many days back to start news fetching.
+    Queries news_historical for the most recent date already stored,
+    then starts from the day after — no duplicates, no gaps."""
+    try:
+        rows = list(client.query(
+            f"SELECT MAX(date) AS last_date FROM `{PROJECT}.{DATASET}.news_historical`"
+        ).result())
+        last_date_str = rows[0]["last_date"] if rows else None
+        if last_date_str:
+            last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
+            today     = datetime.now(tz=timezone.utc).date()
+            gap_days  = (today - last_date).days
+            # Start 1 day after the last stored date; cap at DAYS_BACK_START max
+            start = min(gap_days - 1, DAYS_BACK_START)
+            logger.info(f"News last date in BQ: {last_date_str} → fetching {start} missing days")
+            return max(start, 0)
+    except Exception as e:
+        logger.warning(f"Could not detect news gap ({e}) — using full range {DAYS_BACK_START}")
+    return DAYS_BACK_START
+
+
+def detect_music_start(client: bigquery.Client) -> int:
+    """Return how many weeks back to start Billboard fetching.
+    Queries trending_historical for the most recent week_start already stored,
+    then starts from the week after — no duplicates, no gaps."""
+    try:
+        rows = list(client.query(
+            f"SELECT MAX(week_start) AS last_week FROM `{PROJECT}.{DATASET}.trending_historical`"
+        ).result())
+        last_week_str = rows[0]["last_week"] if rows else None
+        if last_week_str:
+            last_week = datetime.strptime(last_week_str, "%Y-%m-%d").date()
+            today     = datetime.now(tz=timezone.utc).date()
+            gap_weeks = (today - last_week).days // 7
+            start = min(gap_weeks - 1, WEEKS_BACK_START)
+            logger.info(f"Music last week in BQ: {last_week_str} → fetching {start} missing weeks")
+            return max(start, 0)
+    except Exception as e:
+        logger.warning(f"Could not detect music gap ({e}) — using full range {WEEKS_BACK_START}")
+    return WEEKS_BACK_START
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
 def main():
     print("=" * 60)
-    print("SOUNDPULSE - HISTORICAL BACKFILL (3 MONTHS)")
+    print("SOUNDPULSE - HISTORICAL BACKFILL (smart resume)")
     print("=" * 60)
-    total_days  = DAYS_BACK_START - DAYS_BACK_END
-    total_weeks = WEEKS_BACK_START - WEEKS_BACK_END + 1
-    print(f"News: {total_days} days (Guardian daily, parallel)")
-    print(f"Music: {total_weeks} weeks (Billboard weekly + Librosa)")
     print(f"Timestamp: {datetime.now()}")
     print("=" * 60)
 
@@ -548,25 +593,50 @@ def main():
             bq_client.create_table(bigquery.Table(full_table, schema=schema))
             logger.info(f"[OK] Created {full_table}")
 
-    print("\n[2/6] Fetching Guardian historical news...")
-    news_articles = run_news_backfill()
-    print(f"[OK] Total news articles: {len(news_articles)}")
+    # ── Smart resume: detect gaps from last stored date ──────────────────────
+    global DAYS_BACK_START, WEEKS_BACK_START
+    DAYS_BACK_START  = detect_news_start(bq_client)
+    WEEKS_BACK_START = detect_music_start(bq_client)
+    total_days  = DAYS_BACK_START - DAYS_BACK_END
+    total_weeks = WEEKS_BACK_START - WEEKS_BACK_END + 1
+    print(f"\nNews gap  : {total_days} days to fetch")
+    print(f"Music gap : {total_weeks} weeks to fetch")
 
-    print("\n[3/6] Fetching Billboard historical charts...")
-    billboard_songs = run_billboard_backfill()
-    print(f"[OK] Total Billboard entries: {len(billboard_songs)}")
+    if total_days <= 0:
+        print("\n[2/6] News is up to date — skipping Guardian fetch.")
+        news_articles = []
+    else:
+        print("\n[2/6] Fetching Guardian historical news...")
+        news_articles = run_news_backfill()
+        print(f"[OK] Total news articles: {len(news_articles)}")
 
-    print("\n[4/6] iTunes matching + Librosa audio features...")
-    enriched_songs = run_audio_backfill(billboard_songs)
-    print(f"[OK] Enriched songs: {len(enriched_songs)}")
+    if total_weeks <= 0:
+        print("\n[3/6] Music is up to date — skipping Billboard fetch.")
+        billboard_songs = []
+    else:
+        print("\n[3/6] Fetching Billboard historical charts...")
+        billboard_songs = run_billboard_backfill()
+        print(f"[OK] Total Billboard entries: {len(billboard_songs)}")
+
+    if billboard_songs:
+        print("\n[4/6] iTunes matching + Librosa audio features...")
+        enriched_songs = run_audio_backfill(billboard_songs)
+        print(f"[OK] Enriched songs: {len(enriched_songs)}")
+    else:
+        print("\n[4/6] No new Billboard songs — skipping Librosa.")
+        enriched_songs = []
 
     print("\n[5/6] Uploading to GCS...")
-    upload_to_gcs(news_articles,  "news_historical_final",     "raw/historical/news")
-    upload_to_gcs(enriched_songs, "trending_historical_final", "raw/historical/trending")
+    if news_articles:
+        upload_to_gcs(news_articles,  "news_historical_final",     "raw/historical/news")
+    if enriched_songs:
+        upload_to_gcs(enriched_songs, "trending_historical_final", "raw/historical/trending")
 
     print("\n[6/6] Loading to BigQuery...")
-    load_to_bigquery(bq_client, news_articles,  "news_historical",    NEWS_SCHEMA)
-    load_to_bigquery(bq_client, enriched_songs, "trending_historical", TRENDING_SCHEMA)
+    if news_articles:
+        load_to_bigquery(bq_client, news_articles,  "news_historical",    NEWS_SCHEMA)
+    if enriched_songs:
+        load_to_bigquery(bq_client, enriched_songs, "trending_historical", TRENDING_SCHEMA)
 
     print("\n[OK] Verification:")
     for table_id in ["news_historical", "trending_historical"]:
