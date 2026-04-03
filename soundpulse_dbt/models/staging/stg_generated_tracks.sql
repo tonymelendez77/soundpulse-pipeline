@@ -6,7 +6,9 @@ cleaned AS (
     SELECT
         generation_id,
         CAST(week_start AS DATE)         AS week_start,
+        period,
         mood_archetype,
+        mood_blend_json,
         prompt_text,
         similar_tracks_json,
         audio_gcs_path,

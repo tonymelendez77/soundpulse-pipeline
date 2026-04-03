@@ -1,7 +1,8 @@
 """
 SoundPulse — Module 14
 Static export: queries BigQuery and writes JSON snapshots to docs/data/
-Also downloads the latest generated WAV from GCS to docs/audio/track.wav
+Downloads latest generated WAVs from GCS to docs/audio/ (today/weekly/monthly)
+Maintains a timestamped history in docs/audio/history/ (free on GitHub Pages)
 
 Run (from repo root, venv active):
     python serving/export_static.py
@@ -13,14 +14,20 @@ Output:
     docs/data/predictions.json
     docs/data/mood_weekly.json
     docs/data/news_sentiment.json
-    docs/data/generated_tracks.json
-    docs/audio/track.wav          (latest generated clip)
-    docs/data/meta.json           (export timestamp + summary stats)
+    docs/data/generated_tracks.json    (latest per period)
+    docs/data/song_history.json        (full archive index)
+    docs/data/meta.json
+    docs/audio/today.wav               (today's prediction)
+    docs/audio/weekly.wav              (this week's prediction)
+    docs/audio/monthly.wav             (this month's prediction)
+    docs/audio/track.wav               (backwards-compat copy of today.wav)
+    docs/audio/history/YYYY-MM-DD_period.wav  (one per period per run, if new)
 """
 
 import json
 import os
-from datetime import datetime, timezone
+import shutil
+from datetime import date as _date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -37,19 +44,31 @@ def _make_clients():
         info = json.loads(raw)
         scopes = ["https://www.googleapis.com/auth/cloud-platform"]
         creds = service_account.Credentials.from_service_account_info(info, scopes=scopes)
-        return bigquery.Client(project=PROJECT, credentials=creds), \
-               storage.Client(project=PROJECT, credentials=creds)
+        return (bigquery.Client(project=PROJECT, credentials=creds),
+                storage.Client(project=PROJECT, credentials=creds))
     return bigquery.Client(project=PROJECT), storage.Client(project=PROJECT)
-DATASET = f"{PROJECT}.dbt_transformed"
+
+
+DATASET   = f"{PROJECT}.dbt_transformed"
 GCS_BUCKET = "soundpulse-prod-raw-lake"
 
-DOCS = Path(__file__).parent.parent / "docs"
-DATA_DIR = DOCS / "data"
+DOCS      = Path(__file__).parent.parent / "docs"
+DATA_DIR  = DOCS / "data"
 AUDIO_DIR = DOCS / "audio"
+HIST_DIR  = AUDIO_DIR / "history"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+HIST_DIR.mkdir(parents=True, exist_ok=True)
 
+WAV_MAP = {
+    "today":   "today.wav",
+    "weekly":  "weekly.wav",
+    "monthly": "monthly.wav",
+}
+
+
+# ── Generic helpers ───────────────────────────────────────────────────────────────
 
 def bq_to_json(client: bigquery.Client, query: str) -> list[dict]:
     df = client.query(query).to_dataframe()
@@ -67,6 +86,8 @@ def write_json(path: Path, data) -> None:
         json.dump(data, f, ensure_ascii=False)
     logger.info(f"  → {path.relative_to(DOCS.parent)} ({len(data)} rows)")
 
+
+# ── Per-table exports (unchanged from original) ──────────────────────────────────
 
 def export_correlation(client):
     data = bq_to_json(client, f"""
@@ -176,44 +197,164 @@ def export_news_sentiment(client):
     write_json(DATA_DIR / "news_sentiment.json", data)
 
 
-def export_generated_tracks(client) -> dict | None:
+# ── Generated tracks export (updated for multi-period) ───────────────────────────
+
+def export_generated_tracks(client: bigquery.Client) -> dict:
+    """Return latest row per period as a dict keyed by period name."""
     data = bq_to_json(client, f"""
         SELECT
             generation_id,
             CAST(week_start AS STRING) AS week_start,
+            period,
             mood_archetype, prompt_text,
+            mood_blend_json,
             similar_tracks_json, audio_gcs_path,
             CAST(duration_seconds AS FLOAT64) AS duration_seconds,
             CAST(generated_at AS STRING) AS generated_at
         FROM `{DATASET}.stg_generated_tracks`
+        WHERE period IN ('today', 'weekly', 'monthly')
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY period ORDER BY generated_at DESC) = 1
         ORDER BY generated_at DESC
-        LIMIT 10
     """)
     write_json(DATA_DIR / "generated_tracks.json", data)
-    return data[0] if data else None
+
+    by_period = {}
+    for row in data:
+        p = row.get("period")
+        if p and p not in by_period:
+            by_period[p] = row
+
+    # Backwards-compat fallback: if no period rows at all, grab latest row (old schema)
+    if not by_period:
+        fallback = bq_to_json(client, f"""
+            SELECT
+                generation_id,
+                CAST(week_start AS STRING) AS week_start,
+                mood_archetype, prompt_text,
+                similar_tracks_json, audio_gcs_path,
+                CAST(duration_seconds AS FLOAT64) AS duration_seconds,
+                CAST(generated_at AS STRING) AS generated_at
+            FROM `{DATASET}.stg_generated_tracks`
+            ORDER BY generated_at DESC
+            LIMIT 1
+        """)
+        if fallback:
+            by_period["today"] = fallback[0]
+
+    logger.info(f"  generated_tracks: periods found = {list(by_period.keys())}")
+    return by_period
 
 
-def download_wav(latest: dict | None, gcs_client=None) -> None:
-    if not latest:
-        logger.warning("No generated tracks found — skipping WAV download")
-        return
+# ── WAV download ─────────────────────────────────────────────────────────────────
 
-    gcs_path = latest.get("audio_gcs_path", "")
-    if not gcs_path.startswith("gs://"):
-        logger.warning(f"Unexpected GCS path: {gcs_path}")
-        return
+def download_wavs(by_period: dict, gcs_client: storage.Client) -> None:
+    """Download live WAVs for each period + backwards-compat track.wav."""
+    bucket = gcs_client.bucket(GCS_BUCKET)
 
-    parts = gcs_path[5:].split("/", 1)
-    bucket_name, blob_name = parts[0], parts[1]
+    for period, row in by_period.items():
+        gcs_path = row.get("audio_gcs_path", "")
+        if not gcs_path.startswith("gs://"):
+            logger.warning(f"  [{period}] unexpected GCS path: {gcs_path}")
+            continue
 
-    dest = AUDIO_DIR / "track.wav"
-    if gcs_client is None:
-        gcs_client = storage.Client(project=PROJECT)
-    bucket = gcs_client.bucket(bucket_name)
-    bucket.blob(blob_name).download_to_filename(str(dest))
-    size_kb = dest.stat().st_size // 1024
-    logger.info(f"  → docs/audio/track.wav ({size_kb} KB) from {gcs_path}")
+        blob_name = gcs_path[5:].split("/", 1)[1]
+        dest_name = WAV_MAP.get(period, f"{period}.wav")
+        dest = AUDIO_DIR / dest_name
 
+        try:
+            bucket.blob(blob_name).download_to_filename(str(dest))
+            size_kb = dest.stat().st_size // 1024
+            logger.info(f"  → docs/audio/{dest_name} ({size_kb} KB) from {gcs_path}")
+        except Exception as e:
+            logger.error(f"  [{period}] WAV download failed: {e}")
+
+    # Backwards-compat: track.wav = today.wav
+    today_wav = AUDIO_DIR / "today.wav"
+    track_wav = AUDIO_DIR / "track.wav"
+    if today_wav.exists():
+        shutil.copy(today_wav, track_wav)
+        logger.info(f"  → docs/audio/track.wav (copy of today.wav, backwards-compat)")
+
+
+# ── History management ────────────────────────────────────────────────────────────
+
+def update_history(by_period: dict) -> None:
+    """Copy each period's live WAV into docs/audio/history/ with a datestamp.
+    Only creates the file if it doesn't already exist for that date+period.
+    This means the pipeline can run daily without duplicating files.
+    """
+    today = _date.today()
+    monday = today - timedelta(days=today.weekday())
+    month_str = today.strftime("%Y-%m")
+
+    stamp_map = {
+        "today":   f"{today.isoformat()}_today.wav",
+        "weekly":  f"{monday.isoformat()}_weekly.wav",
+        "monthly": f"{month_str}-01_monthly.wav",
+    }
+
+    for period, fname in stamp_map.items():
+        src = AUDIO_DIR / WAV_MAP.get(period, f"{period}.wav")
+        dest = HIST_DIR / fname
+        if src.exists() and not dest.exists():
+            shutil.copy(src, dest)
+            logger.info(f"  → docs/audio/history/{fname} (archived)")
+        elif dest.exists():
+            logger.info(f"  history/{fname} already exists — skipping")
+        else:
+            logger.warning(f"  src {src} not found — cannot archive {fname}")
+
+
+def export_song_history(client: bigquery.Client) -> None:
+    """Build song_history.json index from docs/audio/history/ + BQ metadata."""
+    # Fetch all generated_tracks metadata with period info
+    try:
+        all_tracks = bq_to_json(client, f"""
+            SELECT
+                CAST(week_start AS STRING) AS week_start,
+                period,
+                mood_archetype, prompt_text,
+                CAST(duration_seconds AS FLOAT64) AS duration_seconds,
+                CAST(generated_at AS STRING) AS generated_at
+            FROM `{DATASET}.stg_generated_tracks`
+            WHERE period IS NOT NULL
+            ORDER BY generated_at DESC
+        """)
+    except Exception as e:
+        logger.warning(f"Could not load stg_generated_tracks for history: {e}")
+        all_tracks = []
+
+    # Index history WAV files
+    history = []
+    for wav in sorted(HIST_DIR.glob("*.wav"), reverse=True):
+        stem_parts = wav.stem.split("_", 1)
+        if len(stem_parts) != 2:
+            continue
+        date_str, period = stem_parts
+
+        # Match metadata: find row for this period (best-effort proximity)
+        meta = next((t for t in all_tracks if t.get("period") == period), {})
+
+        label_map = {
+            "today":   date_str,
+            "weekly":  f"Week of {date_str}",
+            "monthly": date_str[:7],  # YYYY-MM
+        }
+        history.append({
+            "period":         period,
+            "date":           date_str,
+            "label":          label_map.get(period, date_str),
+            "mood_archetype": meta.get("mood_archetype") or "",
+            "confidence":     0,   # not stored in stg — kept as 0 for now
+            "prompt_text":    meta.get("prompt_text") or "",
+            "duration_seconds": meta.get("duration_seconds") or 0,
+            "audio_path":     f"audio/history/{wav.name}",
+        })
+
+    write_json(DATA_DIR / "song_history.json", history)
+
+
+# ── Meta ─────────────────────────────────────────────────────────────────────────
 
 def write_meta(exports: dict) -> None:
     meta = {
@@ -222,59 +363,67 @@ def write_meta(exports: dict) -> None:
     }
     with open(DATA_DIR / "meta.json", "w") as f:
         json.dump(meta, f, indent=2)
-    logger.info(f"  → docs/data/meta.json")
+    logger.info("  → docs/data/meta.json")
 
+
+# ── Main ─────────────────────────────────────────────────────────────────────────
 
 def main():
     logger.info("SoundPulse — exporting static data for GitHub Pages")
-    client, _ = _make_clients()
+    bq_client, gcs_client = _make_clients()
 
     counts = {}
 
     logger.info("Exporting correlation...")
-    export_correlation(client)
+    export_correlation(bq_client)
     counts["correlation"] = 50
 
     logger.info("Exporting timeline...")
-    export_timeline(client)
+    export_timeline(bq_client)
     with open(DATA_DIR / "timeline.json") as f:
         counts["timeline"] = len(json.load(f))
 
     logger.info("Exporting SHAP importance...")
-    export_shap(client)
+    export_shap(bq_client)
     with open(DATA_DIR / "shap.json") as f:
         counts["shap"] = len(json.load(f))
 
     logger.info("Exporting predictions...")
-    export_predictions(client)
+    export_predictions(bq_client)
     with open(DATA_DIR / "predictions.json") as f:
         counts["predictions"] = len(json.load(f))
 
     logger.info("Exporting mood weekly...")
-    export_mood_weekly(client)
+    export_mood_weekly(bq_client)
     with open(DATA_DIR / "mood_weekly.json") as f:
         counts["mood_weekly"] = len(json.load(f))
 
     logger.info("Exporting news sentiment...")
-    export_news_sentiment(client)
+    export_news_sentiment(bq_client)
     with open(DATA_DIR / "news_sentiment.json") as f:
         counts["news_sentiment"] = len(json.load(f))
 
     logger.info("Exporting generated tracks...")
-    latest = export_generated_tracks(client)
-    counts["generated_tracks"] = 1 if latest else 0
+    by_period = export_generated_tracks(bq_client)
+    counts["generated_tracks"] = len(by_period)
 
-    logger.info("Downloading WAV from GCS...")
-    _, gcs_client = _make_clients()
-    download_wav(latest, gcs_client)
+    logger.info("Downloading WAVs from GCS...")
+    download_wavs(by_period, gcs_client)
+
+    logger.info("Updating song history archive...")
+    update_history(by_period)
+
+    logger.info("Exporting song history index...")
+    export_song_history(bq_client)
+    with open(DATA_DIR / "song_history.json") as f:
+        counts["song_history"] = len(json.load(f))
 
     write_meta(counts)
 
     logger.info("─── EXPORT COMPLETE ───")
     for k, v in counts.items():
         logger.info(f"  {k}: {v} rows")
-    logger.info(f"  Site ready at: docs/index.html")
-    logger.info("  Enable GitHub Pages: repo Settings → Pages → /docs")
+    logger.info("  Site ready at: docs/index.html")
 
 
 if __name__ == "__main__":
