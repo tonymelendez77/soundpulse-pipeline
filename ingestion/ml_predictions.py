@@ -304,6 +304,20 @@ def main():
     client = bigquery.Client(project=PROJECT)
     now_ts = datetime.now(timezone.utc).isoformat()
 
+    # 0. Run outcome validation — fills in `correct` for past predictions
+    #    before training so the feedback loop is closed first
+    logger.info("Running outcome validation (feedback loop) …")
+    try:
+        from outcome_validator import run_outcome_validation
+        val_result = run_outcome_validation()
+        if val_result["rolling"]["accuracy"] is not None:
+            logger.info(
+                f"  Rolling 8w accuracy: {val_result['rolling']['accuracy']:.1%} "
+                f"({val_result['rolling']['n_correct']}/{val_result['rolling']['n']} validated)"
+            )
+    except Exception as e:
+        logger.warning(f"Outcome validation failed ({e}) — continuing with training")
+
     # 1. Load training data (weekly_features + mood pcts)
     logger.info("Reading training data …")
     df = load_training_data(client)
@@ -382,14 +396,27 @@ def main():
         logger.info("─── LAYER 4 COMPLETE (1-class fallback) ───")
         return
 
-    # 5. Class-balanced sample weights (fix majority-class bias)
+    # 5. Sample weights = class balance × recency
+    #    Recency: exponential decay so last week has weight 1.0,
+    #    a year ago has weight ~0.25 (half-life ≈ 26 weeks).
+    #    Class balance: corrects for majority-class dominance.
+    #    Combined: recent AND rare classes get the highest weight.
     class_counts = Counter(y_raw)
-    total = len(y_raw)
-    sample_weights = np.array([
+    total        = len(y_raw)
+    half_life    = 26.0   # weeks — tune higher to trust history more, lower for recency bias
+    decay        = np.array([
+        np.exp(-np.log(2) * (total - 1 - i) / half_life)
+        for i in range(total)
+    ])
+    class_balance = np.array([
         total / (len(class_counts) * class_counts[raw]) for raw in y_raw
     ])
+    sample_weights = decay * class_balance
+    sample_weights = sample_weights / sample_weights.mean()   # normalise to mean=1
+
     logger.info(f"  Class distribution: {dict(class_counts)}")
-    logger.info(f"  Sample weights range: {sample_weights.min():.3f} – {sample_weights.max():.3f}")
+    logger.info(f"  Sample weights range: {sample_weights.min():.3f} – {sample_weights.max():.3f} "
+                f"(recency decay half-life={half_life}w)")
 
     # 6. Train XGBoost
     params = {
