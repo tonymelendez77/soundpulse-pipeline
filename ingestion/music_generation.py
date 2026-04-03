@@ -101,6 +101,18 @@ def ensure_gen_table(client: bigquery.Client) -> None:
     logger.info(f"Table ready: {GEN_TABLE}")
 
 
+def weekly_song_exists_this_week(client: bigquery.Client, week_start: str) -> bool:
+    """Return True if a weekly song has already been generated for the current week."""
+    query = f"""
+        SELECT COUNT(*) AS n
+        FROM `{GEN_TABLE}`
+        WHERE period = 'weekly'
+          AND CAST(week_start AS STRING) = '{week_start}'
+    """
+    rows = list(client.query(query).result())
+    return rows[0]["n"] > 0 if rows else False
+
+
 def fetch_predictions_by_period(client: bigquery.Client) -> dict:
     """Return the most recent prediction row per period (today/weekly/monthly)."""
     query = f"""
@@ -475,11 +487,13 @@ def main():
 
     # Decide which periods are due today:
     #   today   — always
-    #   weekly  — only on Monday (weekday 0)
+    #   weekly  — on Monday, OR any day if no song exists yet for this week
     #   monthly — only on the 1st of the month
     periods_due = {"today"}
-    if today.weekday() == 0:
+    if today.weekday() == 0 or not weekly_song_exists_this_week(bq_client, week_start_str):
         periods_due.add("weekly")
+        if today.weekday() != 0:
+            logger.info("  weekly: no song found for this week — generating outside Monday")
     if today.day == 1:
         periods_due.add("monthly")
     logger.info(f"Periods due today ({today}): {periods_due}")
