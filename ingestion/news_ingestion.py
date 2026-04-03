@@ -110,7 +110,9 @@ def fetch_newsapi(category: str) -> list[dict]:
     ]
 
 
-def fetch_guardian(query: str, topic: str) -> list[dict]:
+def fetch_guardian(query: str, topic: str,
+                   from_date: str | None = None, to_date: str | None = None) -> list[dict]:
+    """Fetch Guardian articles. Pass from_date/to_date (YYYY-MM-DD) to backfill a specific day."""
     if not GUARDIAN_KEY:
         logger.warning("GUARDIAN_API_KEY not set — skipping Guardian")
         return []
@@ -122,6 +124,10 @@ def fetch_guardian(query: str, topic: str) -> list[dict]:
         "show-fields":"headline,bodyText",
         "order-by":   "newest",
     }
+    if from_date:
+        params["from-date"] = from_date
+    if to_date:
+        params["to-date"] = to_date
 
     response = requests.get(GUARDIAN_URL, params=params, timeout=10)
     response.raise_for_status()
@@ -176,25 +182,30 @@ def fetch_mediastack(keywords: str, languages: str, topic: str) -> list[dict]:
     ]
 
 
-def run_news_ingestion() -> pd.DataFrame:
-    logger.info("Starting news ingestion run")
+def run_news_ingestion(date_str: str | None = None) -> pd.DataFrame:
+    """Fetch news. Pass date_str (YYYY-MM-DD) to backfill a specific day (Guardian only)."""
+    label = f" [{date_str}]" if date_str else " [current]"
+    logger.info(f"Starting news ingestion{label}")
     all_articles = []
 
-    for category in NEWSAPI_CATEGORIES:
-        try:
-            articles = fetch_newsapi(category)
-            all_articles.extend(articles)
-            logger.info(f"NewsAPI '{category}' → {len(articles)} articles")
-        except Exception as e:
-            logger.error(f"NewsAPI failed for '{category}': {e}")
+    if not date_str:
+        # NewsAPI doesn't support historical date queries on free tier — current only
+        for category in NEWSAPI_CATEGORIES:
+            try:
+                articles = fetch_newsapi(category)
+                all_articles.extend(articles)
+                logger.info(f"NewsAPI '{category}' → {len(articles)} articles")
+            except Exception as e:
+                logger.error(f"NewsAPI failed for '{category}': {e}")
 
     for item in GUARDIAN_QUERIES:
         try:
-            articles = fetch_guardian(item["query"], item["topic"])
+            articles = fetch_guardian(item["query"], item["topic"],
+                                      from_date=date_str, to_date=date_str)
             all_articles.extend(articles)
-            logger.info(f"Guardian '{item['topic']}' → {len(articles)} articles")
+            logger.info(f"Guardian '{item['topic']}'{label} → {len(articles)} articles")
         except Exception as e:
-            logger.error(f"Guardian failed for '{item['query']}': {e}")
+            logger.error(f"Guardian failed for '{item['query']}'{label}: {e}")
         finally:
             time.sleep(3)
 
