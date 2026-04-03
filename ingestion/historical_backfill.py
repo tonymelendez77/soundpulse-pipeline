@@ -27,10 +27,13 @@ PROJECT          = "soundpulse-production"
 DATASET          = "music_analytics"
 BUCKET           = "soundpulse-prod-raw-lake"
 BASE_DIR         = Path(__file__).parent.parent
-DAYS_BACK_START  = 182   # Oct 2025 → now (Apr–Oct 2025 already in BQ from previous run)
+DAYS_BACK_START  = 365   # max news history to fetch (smart resume skips already-collected)
 DAYS_BACK_END    = 8
-WEEKS_BACK_START = 52
+WEEKS_BACK_START = 52    # max music history to fetch (smart resume skips already-collected)
 WEEKS_BACK_END   = 2
+
+SKIP_NEWS  = True        # Guardian daily quota exhausted — re-run tomorrow with False
+SKIP_MUSIC = False       # set True to skip Billboard/iTunes/Librosa fetch
 
 GUARDIAN_KEY = os.getenv("GUARDIAN_API_KEY")
 GUARDIAN_URL = "https://content.guardianapis.com/search"
@@ -602,13 +605,21 @@ def main():
     print(f"  News  : ~{max(news_to_fetch, 0)} days missing out of {DAYS_BACK_START - DAYS_BACK_END}")
     print(f"  Music : ~{max(music_to_fetch, 0)} weeks missing out of {WEEKS_BACK_START - WEEKS_BACK_END + 1}")
 
-    print("\n[2/6] Fetching Guardian historical news (missing dates only)...")
-    news_articles = run_news_backfill(existing_news_dates)
-    print(f"[OK] New news articles fetched: {len(news_articles)}")
+    if SKIP_NEWS:
+        print("\n[2/6] SKIP_NEWS=True — skipping Guardian fetch.")
+        news_articles = []
+    else:
+        print("\n[2/6] Fetching Guardian historical news (missing dates only)...")
+        news_articles = run_news_backfill(existing_news_dates)
+        print(f"[OK] New news articles fetched: {len(news_articles)}")
 
-    print("\n[3/6] Fetching Billboard historical charts (missing weeks only)...")
-    billboard_songs = run_billboard_backfill(existing_music_weeks)
-    print(f"[OK] New Billboard entries fetched: {len(billboard_songs)}")
+    if SKIP_MUSIC:
+        print("\n[3/6] SKIP_MUSIC=True — skipping Billboard fetch.")
+        billboard_songs = []
+    else:
+        print("\n[3/6] Fetching Billboard historical charts (missing weeks only)...")
+        billboard_songs = run_billboard_backfill(existing_music_weeks)
+        print(f"[OK] New Billboard entries fetched: {len(billboard_songs)}")
 
     if billboard_songs:
         print("\n[4/6] iTunes matching + Librosa audio features...")
