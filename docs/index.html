@@ -664,7 +664,7 @@
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M10</span>
-            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=5 archetypes scored via Russell's Circumplex Model (valence × arousal quadrants): euphoric, melancholic, aggressive, peaceful, groovy</span>
+            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=3 active archetypes (euphoric, melancholic, aggressive) scored via Russell's Circumplex Model (valence × arousal quadrants); peaceful &amp; groovy emerge as data grows</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
             <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M11</span>
@@ -787,7 +787,7 @@
         <rect x="233" y="365" width="203" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
         <text x="334" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M10 · KMEANS</text>
         <text x="334" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">🧩</text>
-        <text x="334" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">k=5 archetypes</text>
+        <text x="334" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">k=3 archetypes</text>
         <text x="334" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">euphoric · melancholic</text>
         <text x="334" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">aggressive · peaceful · groovy</text>
         <!-- horiz arrow M10→M11 -->
@@ -941,7 +941,7 @@
         <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🧩</div>
           <div style="font-weight:700; font-size:.8rem;">KMeans Cluster</div>
-          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">k=5 archetypes<br>silhouette · M10</div>
+          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">k=3 archetypes<br>Russell's Circumplex · M10</div>
         </div>
         <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">📐</div>
@@ -1026,7 +1026,7 @@
             assigned to a mood archetype (x-axis), across all 52 weeks. Red = positive correlation, blue = negative.
             Cells marked ★ are statistically notable (|r| ≥ 0.3). The strongest positive correlation tells you which
             emotion most reliably predicts which music mood — and the answer might surprise you.
-            Look for the <strong>disgust → aggressive</strong> and <strong>neutral → aggressive</strong> pairs.
+            Look for the <strong>disgust → melancholic</strong> (r = −0.36) and <strong>anxiety → melancholic</strong> (r = +0.32) pairs — the strongest signals in the current 64-week dataset.
           </p>
         </div>
       </div>
@@ -1060,9 +1060,7 @@
           <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
             Point-biserial correlation between each emotion feature and each mood archetype's binary label.
             Positive values mean "when this emotion is high, this mood tends to dominate." Negative means the opposite.
-            The standout finding: <strong>avg_neutral is the top driver of aggressive music</strong> —
-            when news sentiment flattens out (neither joyful nor fearful, just numb),
-            aggressive music fills the emotional void. Anxiety index comes in second, confirming the hypothesis direction.
+            The standout finding: <strong>seasonal timing (week-of-year) and prior mood percentages are the top predictors</strong> — the model captures cyclical patterns in how chart moods shift through the year. Among news emotions, <strong>avg_fear</strong> is the strongest signal, confirming that heightened anxiety in the news correlates with shifts in chart mood.
           </p>
         </div>
       </div>
@@ -1123,7 +1121,7 @@
   <div class="section-label">Module 11 · Pearson r</div>
   <h2>News Emotions → Music Mood Correlation</h2>
   <p class="subtitle">
-    Pearson r computed between 52 weeks of DistilRoBERTa emotion scores from Guardian news
+    Pearson r computed between 64 weeks of DistilRoBERTa emotion scores from Guardian news
     and KMeans audio mood archetype percentages. Notable pairs (|r| ≥ 0.3) are marked ★.
   </p>
   <div class="card">
@@ -1150,7 +1148,10 @@
   <h2>AI Mood Prediction</h2>
   <p class="subtitle">
     23-feature XGBoost model (10 emotions + 5 mood distributions + 8 seasonal/temporal features),
-    class-balanced with recency decay weighting. Runs 3 inferences per pipeline: today, this week, and this month.
+    trained on 64 weeks with recency-decay × class-balanced weights. Weekly labels are assigned via
+    z-score relative ranking — a week is labeled "melancholic" when melancholic % is most above its own
+    historical average, giving balanced class diversity across 3 archetypes.
+    Runs 3 inferences per pipeline: today, this week, and this month.
     Each week, outcomes are automatically validated against actual chart data — closing the feedback loop.
   </p>
 
@@ -1200,7 +1201,7 @@
   <div class="section-label">Module 10 · KMeans Audio Clustering</div>
   <h2>Music Mood Trends by Chart Source</h2>
   <p class="subtitle">
-    KMeans (k=5) mood archetype assignments across Billboard, iTunes, and Last.fm charts.
+    KMeans (k=3) mood archetype assignments across Billboard, iTunes, and Last.fm charts.
     Radar shows the latest week; timeline tracks how dominance shifted.
   </p>
   <div class="card">
@@ -1638,10 +1639,11 @@ async function initPrediction() {
           <div style="font-size:2rem; margin-bottom:8px">🎯</div>
           <strong style="color:var(--text)">SHAP values are near zero</strong><br>
           The model has low class variance in the current training window — likely because
-          a single mood dominates recent weeks. More diverse training data (52-week backfill)
-          and the outcome feedback loop will correct this over time.<br>
+          SHAP values are near zero for this training run. The model trains on 64 weeks with
+          balanced class distribution (euphoric · melancholic · aggressive), so feature importance
+          should populate once the model sees more variance in the incoming week's features.<br>
           <span style="font-size:.82rem; margin-top:8px; display:block">
-            Feature importance will populate automatically as mood diversity increases.
+            Feature importance will appear automatically after the next pipeline run.
           </span>
         </div>`;
     } else {
@@ -1981,7 +1983,7 @@ async function initProcessSection() {
   if (corrEl) corrEl.textContent = '50 emotion–mood pairs computed across all weeks';
 
   const shapEl = document.getElementById('chart-explain-shap');
-  if (shapEl) shapEl.textContent = 'avg_neutral is the #1 driver of aggressive music weeks';
+  if (shapEl) shapEl.textContent = 'Seasonal timing + prior mood %s are top predictors; avg_fear leads news emotions';
 
   // Dynamic insights
   const container = document.getElementById('dynamic-insights');
