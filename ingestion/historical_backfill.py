@@ -27,9 +27,9 @@ PROJECT          = "soundpulse-production"
 DATASET          = "music_analytics"
 BUCKET           = "soundpulse-prod-raw-lake"
 BASE_DIR         = Path(__file__).parent.parent
-DAYS_BACK_START  = 91
+DAYS_BACK_START  = 365
 DAYS_BACK_END    = 8
-WEEKS_BACK_START = 13
+WEEKS_BACK_START = 52
 WEEKS_BACK_END   = 2
 
 GUARDIAN_KEY = os.getenv("GUARDIAN_API_KEY")
