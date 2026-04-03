@@ -261,11 +261,9 @@ def soundpulse_daily():
         # ── Layer 3: Emotion NLP ──────────────────────────────────────────────
         run_emotion_nlp.submit().result(); _done("M9-emotion")
 
-        # ── Layer 4: Clustering + Correlation (parallel) ──────────────────────
-        cluster_f = run_clustering.submit()
-        corr_f    = run_correlation.submit()
-        cluster_f.result(); _done("M10-kmeans")
-        corr_f.result();    _done("M11-correlation")
+        # ── Layer 4: Clustering → then Correlation (sequential: M11 reads M10 output) ──
+        run_clustering.submit().result();   _done("M10-kmeans")
+        run_correlation.submit().result();  _done("M11-correlation")
 
         # ── Layer 5: ML Prediction ────────────────────────────────────────────
         run_ml_predictions.submit().result(); _done("M12-xgboost")
