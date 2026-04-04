@@ -93,13 +93,14 @@ def write_json(path: Path, data) -> None:
 # ── Per-table exports (unchanged from original) ──────────────────────────────────
 
 def export_correlation(client):
+    # Query raw table (has region) instead of dbt view (which drops region)
     data = bq_to_json(client, f"""
-        SELECT emotion, mood_archetype,
+        SELECT region, emotion, mood_archetype,
                CAST(pearson_r AS FLOAT64) AS pearson_r,
                direction,
-               CAST(notable AS BOOL) AS notable
-        FROM `{DATASET}.fct_emotion_music_correlation`
-        ORDER BY mood_archetype, emotion
+               CAST(significant AS BOOL) AS notable
+        FROM `{RAW}.emotion_music_correlation`
+        ORDER BY region, mood_archetype, emotion
     """)
     write_json(DATA_DIR / "correlation.json", data)
 
@@ -130,13 +131,14 @@ def export_timeline(client):
 
 
 def export_shap(client):
+    # Query raw table (has region) instead of dbt view (which drops region)
     data = bq_to_json(client, f"""
-        SELECT feature, mood_archetype,
+        SELECT region, feature, mood_archetype,
                CAST(mean_shap_value AS FLOAT64) AS mean_shap_value,
-               CAST(mean_abs_shap AS FLOAT64) AS mean_abs_shap,
-               importance_rank
-        FROM `{DATASET}.stg_shap_importance`
-        ORDER BY mood_archetype, importance_rank ASC
+               CAST(mean_abs_shap   AS FLOAT64) AS mean_abs_shap,
+               rank AS importance_rank
+        FROM `{RAW}.shap_importance`
+        ORDER BY region, mood_archetype, rank ASC
     """)
     write_json(DATA_DIR / "shap.json", data)
 

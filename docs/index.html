@@ -395,10 +395,10 @@
 
   <!-- Region selector tabs -->
   <div style="display:flex; gap:8px; margin-top:28px; justify-content:center; flex-wrap:wrap;">
-    <button class="region-tab active" id="rtab-global"        onclick="selectRegion('global')">🌐 Global</button>
-    <button class="region-tab"        id="rtab-north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
-    <button class="region-tab"        id="rtab-latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
-    <button class="region-tab"        id="rtab-europe"        onclick="selectRegion('europe')">🌍 Europe</button>
+    <button class="region-tab active" id="rtab-global"        data-region="global"        onclick="selectRegion('global')">🌐 Global</button>
+    <button class="region-tab"        id="rtab-north_america" data-region="north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
+    <button class="region-tab"        id="rtab-latin_america" data-region="latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
+    <button class="region-tab"        id="rtab-europe"        data-region="europe"        onclick="selectRegion('europe')">🌍 Europe</button>
   </div>
 
   <!-- AI SONG PREDICTIONS — loaded by JS -->
@@ -1134,13 +1134,28 @@
 
 </div>
 
+<!-- ──────────────── STICKY REGION FILTER BAR ──────────────── -->
+<div id="region-filter-bar" style="
+  position:sticky; top:58px; z-index:90;
+  background:rgba(8,9,15,.95); backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:10px 24px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+  <span style="font-size:.72rem; font-weight:700; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; flex-shrink:0;">Filter region:</span>
+  <button class="region-tab active" data-region="global"        onclick="selectRegion('global')">🌐 Global</button>
+  <button class="region-tab"        data-region="north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
+  <button class="region-tab"        data-region="latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
+  <button class="region-tab"        data-region="europe"        onclick="selectRegion('europe')">🌍 Europe</button>
+  <span style="margin-left:auto; font-size:.72rem; color:var(--muted);" id="region-filter-note">Filters: Correlation · SHAP · Audio Tiles</span>
+</div>
+
 <!-- ──────────────── SECTION 1 — CORRELATION ──────────────── -->
 <section id="correlation">
   <div class="section-label">Module 11 · Pearson r</div>
   <h2>News Emotions → Music Mood Correlation</h2>
   <p class="subtitle">
     Pearson r computed between 64 weeks of DistilRoBERTa emotion scores from Guardian news
-    and KMeans audio mood archetype percentages. Notable pairs (|r| ≥ 0.3) are marked ★.
+    and KMeans audio mood archetype percentages per region. Notable pairs (|r| ≥ 0.3) are marked ★.
+    Use the region filter above to switch between regions.
   </p>
   <div class="card">
     <div id="chart-heatmap" class="loading">Loading chart…</div>
@@ -1204,7 +1219,7 @@
 
   <div class="chart-grid">
     <div class="card" style="overflow:hidden">
-      <b>Feature Importance (SHAP)</b>
+      <b>Feature Importance (SHAP) — <span id="shap-region-label" style="color:var(--accent)">Global</span></b>
       <div id="chart-shap" class="loading" style="margin-top:12px">Loading chart…</div>
     </div>
     <div class="card" style="overflow-x:auto">
@@ -1506,11 +1521,27 @@ window._activeRegion   = 'global';
 window.selectRegion = function(region) {
   window._activeRegion = region;
 
-  // Update tab active state
+  // Update all region tab sets (hero + dashboard)
+  document.querySelectorAll('.region-tab[data-region]').forEach(el => {
+    el.classList.toggle('active', el.dataset.region === region);
+  });
+  // Legacy IDs (hero tabs)
   ['global','north_america','latin_america','europe'].forEach(r => {
     const el = document.getElementById(`rtab-${r}`);
     if (el) el.classList.toggle('active', r === region);
   });
+
+  // Update SHAP region label
+  const REGION_LABELS_SHORT = {
+    global: 'Global', north_america: 'N. America',
+    latin_america: 'Latin America', europe: 'Europe',
+  };
+  const shapLabel = document.getElementById('shap-region-label');
+  if (shapLabel) shapLabel.textContent = REGION_LABELS_SHORT[region] || region;
+
+  // Re-render region-aware charts
+  if (window._correlationData) renderHeatmap(region);
+  if (window._shapData) renderShap(region);
 
   const base   = REGION_AUDIO_BASE[region] || 'audio/global/';
   const tracks = window._tracksByRegion[region] || {};
@@ -1563,12 +1594,15 @@ async function initAudio() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Chart 1 — Correlation heatmap
+// Chart 1 — Correlation heatmap (region-filterable)
 // ──────────────────────────────────────────────────────────────
-async function initHeatmap() {
-  const data = await load('correlation.json');
+window._correlationData = null;
 
-  // Only include archetypes that have at least one valid (non-null) pearson_r
+function renderHeatmap(region) {
+  const all  = window._correlationData;
+  if (!all || !all.length) return;
+  const data = all.filter(d => !d.region || d.region === region);
+
   const allArchetypes = [...new Set(data.map(d => d.mood_archetype))].sort();
   const archetypes = allArchetypes.filter(arch =>
     data.some(d => d.mood_archetype === arch && d.pearson_r !== null && !isNaN(parseFloat(d.pearson_r)))
@@ -1581,8 +1615,6 @@ async function initHeatmap() {
       return (row && row.pearson_r !== null) ? parseFloat(row.pearson_r) : 0;
     })
   );
-
-  // Annotation text: r value + ★ for notable
   const text = archetypes.map(arch =>
     emotions.map(em => {
       const row = data.find(d => d.emotion === em && d.mood_archetype === arch);
@@ -1591,12 +1623,10 @@ async function initHeatmap() {
       return row.notable ? `${r}★` : r;
     })
   );
-
   const emotionLabels = emotions.map(e => e.replace('avg_','').replace(/_/g,' '));
   const archLabels    = archetypes.map(a => a.charAt(0).toUpperCase() + a.slice(1));
 
-  clearLoading('chart-heatmap');
-  Plotly.newPlot('chart-heatmap', [{
+  Plotly.react('chart-heatmap', [{
     type: 'heatmap', z, x: emotionLabels, y: archLabels, text,
     texttemplate: '%{text}', textfont: { size: 11 },
     colorscale: 'RdBu', zmid: 0, zmin: -1, zmax: 1,
@@ -1610,6 +1640,12 @@ async function initHeatmap() {
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: '', automargin: true },
     margin: {l: 0, r: 140, t: 30, b: 90, pad: 0},
   }, CONFIG);
+}
+
+async function initHeatmap() {
+  window._correlationData = await load('correlation.json');
+  clearLoading('chart-heatmap');
+  renderHeatmap(window._activeRegion || 'global');
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1665,12 +1701,77 @@ async function initTimeline() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Chart 3 — SHAP + predictions
+// Chart 3 — SHAP + predictions (SHAP is region-filterable)
 // ──────────────────────────────────────────────────────────────
+window._shapData = null;
+
+function renderShap(region) {
+  const all = window._shapData;
+  if (!all) return;
+  const shapData = all.filter(d => !d.region || d.region === region);
+
+  const allZero = shapData.every(d => parseFloat(d.mean_abs_shap) === 0);
+  const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
+
+  if (allZero) {
+    const allSigned = shapData.every(d => parseFloat(d.mean_shap_value) === 0);
+    if (allSigned) {
+      document.getElementById('chart-shap').innerHTML = `
+        <div style="padding:24px; color:var(--muted); font-size:.9rem; text-align:center; line-height:1.8">
+          <div style="font-size:2rem; margin-bottom:8px">🎯</div>
+          <strong style="color:var(--text)">SHAP values are near zero</strong><br>
+          The model has low class variance in the current training window. Feature importance
+          will appear automatically after the next pipeline run.
+        </div>`;
+      return;
+    }
+    const shapTraces = archetypes.map(arch => {
+      const rows = shapData.filter(d => d.mood_archetype === arch)
+        .sort((a,b) => a.importance_rank - b.importance_rank);
+      return {
+        type: 'bar', orientation: 'h', name: arch,
+        x: rows.map(d => parseFloat(d.mean_shap_value)),
+        y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+        marker: { color: MOOD_COLORS[arch] || '#888', opacity: 0.9 },
+        hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
+      };
+    });
+    Plotly.react('chart-shap', shapTraces, {
+      ...PLOTLY_LAYOUT, height: 460, barmode: 'overlay',
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true, automargin: true },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+      legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
+      margin: { l: 50, r: 100, t: 80, b: 50 },
+    }, CONFIG);
+  } else {
+    const shapTraces = archetypes.map(arch => {
+      const rows = shapData.filter(d => d.mood_archetype === arch)
+        .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap));
+      return {
+        type: 'bar', orientation: 'h', name: arch,
+        x: rows.map(d => parseFloat(d.mean_abs_shap)),
+        y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+        marker: { color: MOOD_COLORS[arch] || '#888', opacity: 0.9 },
+        text: rows.map(d => parseFloat(d.mean_abs_shap).toFixed(3)),
+        textposition: 'auto', insidetextanchor: 'middle',
+        hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
+      };
+    });
+    Plotly.react('chart-shap', shapTraces, {
+      ...PLOTLY_LAYOUT, height: 460, barmode: 'group',
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true, automargin: true },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+      legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
+      margin: { l: 85, r: 60, t: 50, b: 50 },
+    }, CONFIG);
+  }
+}
+
 async function initPrediction() {
   const [shapData, predData] = await Promise.all([load('shap.json'), load('predictions.json')]);
+  window._shapData = shapData;
 
-  // ── Metrics
+  // ── Metrics (global accuracy summary from dbt — no region split)
   if (predData.length) {
     const last = predData[predData.length - 1];
     const metrics = document.getElementById('pred-metrics');
@@ -1682,75 +1783,10 @@ async function initPrediction() {
     `;
   }
 
-  // ── SHAP bar
-  const allZero = shapData.every(d => parseFloat(d.mean_abs_shap) === 0);
-
   clearLoading('chart-shap');
+  renderShap(window._activeRegion || 'global');
 
-  if (allZero) {
-    const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
-    const allSigned  = shapData.every(d => parseFloat(d.mean_shap_value) === 0);
-
-    if (allSigned) {
-      document.getElementById('chart-shap').innerHTML = `
-        <div style="padding:24px; color:var(--muted); font-size:.9rem; text-align:center; line-height:1.8">
-          <div style="font-size:2rem; margin-bottom:8px">🎯</div>
-          <strong style="color:var(--text)">SHAP values are near zero</strong><br>
-          The model has low class variance in the current training window — likely because
-          SHAP values are near zero for this training run. The model trains on 64 weeks with
-          balanced class distribution (euphoric · melancholic · aggressive), so feature importance
-          should populate once the model sees more variance in the incoming week's features.<br>
-          <span style="font-size:.82rem; margin-top:8px; display:block">
-            Feature importance will appear automatically after the next pipeline run.
-          </span>
-        </div>`;
-    } else {
-      const shapTraces = archetypes.map(arch => {
-        const rows = shapData.filter(d => d.mood_archetype === arch)
-          .sort((a,b) => a.importance_rank - b.importance_rank);
-        return {
-          type: 'bar', orientation: 'h', name: arch,
-          x: rows.map(d => parseFloat(d.mean_shap_value)),
-          y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
-          marker: { color: MOOD_COLORS[arch] || '#888', opacity: 0.9 },
-          hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
-        };
-      });
-      Plotly.newPlot('chart-shap', shapTraces, {
-        ...PLOTLY_LAYOUT, height: 460, barmode: 'overlay',
-        xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean SHAP value', autorange: true, automargin: true },
-        yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
-        legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
-        margin: { l: 50, r: 100, t: 80, b: 50 },
-      }, CONFIG);
-    }
-  } else {
-    const archetypes = [...new Set(shapData.map(d => d.mood_archetype))];
-    const shapTraces = archetypes.map(arch => {
-      const rows = shapData.filter(d => d.mood_archetype === arch)
-        .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap));
-      return {
-        type: 'bar', orientation: 'h', name: arch,
-        x: rows.map(d => parseFloat(d.mean_abs_shap)),
-        y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
-        marker: { color: MOOD_COLORS[arch] || '#888', opacity: 0.9 },
-        // inline text only when bar is wide enough — use auto to avoid clipping
-        text: rows.map(d => parseFloat(d.mean_abs_shap).toFixed(3)),
-        textposition: 'auto',
-        insidetextanchor: 'middle',
-        hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
-      };
-    });
-    Plotly.newPlot('chart-shap', shapTraces, {
-      ...PLOTLY_LAYOUT, height: 460, barmode: 'group',
-      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true, automargin: true },
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
-      legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
-      margin: { l: 85, r: 60, t: 50, b: 50 },
-    }, CONFIG);
-  }
-
-  // ── Prediction table
+  // ── Prediction table (historical, from dbt summary — global)
   const rows = predData.map(d => {
     const cls = d.correct ? 'correct' : 'wrong';
     const conf = (parseFloat(d.confidence)*100).toFixed(0);
