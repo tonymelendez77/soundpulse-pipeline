@@ -148,6 +148,16 @@
       font-size:.74rem; font-weight:700; margin-bottom:10px;
     }
     .audio-tile audio { width:100%; margin-top:8px; }
+
+    /* ── REGION TABS ── */
+    .region-tab {
+      padding:5px 16px; border-radius:20px; font-size:.78rem; font-weight:600;
+      cursor:pointer; border:1px solid var(--border); background:transparent;
+      color:var(--muted); transition:all .15s; font-family:inherit;
+    }
+    .region-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .region-tab:hover:not(.active) { border-color:var(--border-2); color:var(--text); }
+
     .audio-tile .tile-prompt {
       font-size:.73rem; color:var(--muted); margin-top:8px;
       font-style:italic; line-height:1.5;
@@ -383,6 +393,14 @@
   <p>A 14-module data pipeline that proves world events influence music listening habits —
      and generates three AI music clips — today's, this week's, and this month's predicted mood.</p>
 
+  <!-- Region selector tabs -->
+  <div style="display:flex; gap:8px; margin-top:28px; justify-content:center; flex-wrap:wrap;">
+    <button class="region-tab active" id="rtab-global"        onclick="selectRegion('global')">🌐 Global</button>
+    <button class="region-tab"        id="rtab-north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
+    <button class="region-tab"        id="rtab-latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
+    <button class="region-tab"        id="rtab-europe"        onclick="selectRegion('europe')">🌍 Europe</button>
+  </div>
+
   <!-- AI SONG PREDICTIONS — loaded by JS -->
   <div class="audio-grid" id="audio-grid">
     <div class="audio-tile">
@@ -454,7 +472,7 @@
       </div>
       <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
         <div id="stat-sources" style="font-size:2.4rem; font-weight:800; color:#ef476f; line-height:1;">—</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Chart Sources Tracked</div>
+        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">World Regions Tracked</div>
       </div>
     </div>
   </div>
@@ -1199,17 +1217,18 @@
 <!-- ──────────────── SECTION 4 — TRENDS ──────────────── -->
 <section id="trends">
   <div class="section-label">Module 10 · KMeans Audio Clustering</div>
-  <h2>Music Mood Trends by Chart Source</h2>
+  <h2>Music Mood Trends by Region</h2>
   <p class="subtitle">
-    KMeans (k=3) mood archetype assignments across Billboard, iTunes, and Last.fm charts.
-    Radar shows the latest week; timeline tracks how dominance shifted.
+    KMeans (k=3) mood archetype assignments grouped into 4 world regions —
+    N. America (Billboard US), Latin America (Billboard Latin), Europe (YouTube/iTunes/Last.fm), and Global (Billboard Global 200).
+    Radar shows the latest week; timeline tracks how regional moods shifted over 64 weeks.
   </p>
   <div class="card">
-    <b>Mood Distribution — Latest Week (Radar) · all chart sources</b>
+    <b>Mood Distribution — Latest Week (Radar) · 4 regions</b>
     <div id="chart-radar" class="loading" style="margin-top:12px">Loading chart…</div>
   </div>
   <div class="card" style="margin-top:0">
-    <b>Dominant Mood Over Time by Source</b>
+    <b>Dominant Mood Over Time by Region</b>
     <div id="chart-mood-timeline" class="loading" style="margin-top:12px">Loading chart…</div>
   </div>
 </section>
@@ -1472,35 +1491,74 @@ function moodChip(mood) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Audio 3-tile grid (today / weekly / monthly)
+// Audio 3-tile grid (today / weekly / monthly) — regional
 // ──────────────────────────────────────────────────────────────
+const REGION_AUDIO_BASE = {
+  global:        'audio/global/',
+  north_america: 'audio/north_america/',
+  latin_america: 'audio/latin_america/',
+  europe:        'audio/europe/',
+};
+
+window._tracksByRegion = {};   // populated by initAudio
+window._activeRegion   = 'global';
+
+window.selectRegion = function(region) {
+  window._activeRegion = region;
+
+  // Update tab active state
+  ['global','north_america','latin_america','europe'].forEach(r => {
+    const el = document.getElementById(`rtab-${r}`);
+    if (el) el.classList.toggle('active', r === region);
+  });
+
+  const base   = REGION_AUDIO_BASE[region] || 'audio/global/';
+  const tracks = window._tracksByRegion[region] || {};
+
+  ['today','weekly','monthly'].forEach(period => {
+    const t     = tracks[period];
+    const badge = document.getElementById(`mood-${period}`);
+    const player= document.getElementById(`player-${period}`);
+    const prompt= document.getElementById(`prompt-${period}`);
+
+    if (badge) {
+      const mood = t ? t.mood_archetype : '—';
+      badge.textContent = mood !== '—' ? mood.toUpperCase() : '—';
+      badge.style.background = mood !== '—' ? (MOOD_COLORS[mood] || '#888') : '#333';
+      badge.style.color = ['euphoric','peaceful'].includes(mood) ? '#000' : '#fff';
+    }
+    if (player) {
+      const src = player.querySelector('source');
+      if (src) {
+        src.src = `${base}${period}.wav`;
+        player.load();
+      }
+    }
+    if (prompt && t) prompt.textContent = `"${t.prompt_text}"`;
+    else if (prompt) prompt.textContent = '';
+  });
+};
+
 async function initAudio() {
   try {
     const tracks = await load('generated_tracks.json');
     if (!tracks.length) return;
 
-    // Build period lookup; fallback to tracks[0] for any missing period
-    const byPeriod = {};
+    // Build {region: {period: track}} lookup
     for (const t of tracks) {
-      if (t.period && !byPeriod[t.period]) byPeriod[t.period] = t;
+      const r = t.region || 'global';
+      const p = t.period;
+      if (r && p) {
+        if (!window._tracksByRegion[r]) window._tracksByRegion[r] = {};
+        if (!window._tracksByRegion[r][p]) window._tracksByRegion[r][p] = t;
+      }
     }
-    const fallback = tracks[0];
 
-    const fill = (period, suffix) => {
-      const t = byPeriod[period] || fallback;
-      if (!t) return;
-      const badge = document.getElementById(`mood-${suffix}`);
-      if (!badge) return;
-      badge.textContent = t.mood_archetype.toUpperCase();
-      badge.style.background = MOOD_COLORS[t.mood_archetype] || '#888';
-      badge.style.color = ['euphoric','peaceful'].includes(t.mood_archetype) ? '#000' : '#fff';
-      const promptEl = document.getElementById(`prompt-${suffix}`);
-      if (promptEl) promptEl.textContent = `"${t.prompt_text}"`;
-    };
-
-    fill('today',   'today');
-    fill('weekly',  'weekly');
-    fill('monthly', 'monthly');
+    // Default: show global (or first available region)
+    const defaultRegion = window._tracksByRegion['global']
+      ? 'global'
+      : Object.keys(window._tracksByRegion)[0] || 'global';
+    selectRegion(defaultRegion);
   } catch(e) { console.warn('Audio tiles:', e); }
 }
 
@@ -1714,75 +1772,88 @@ async function initPrediction() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Chart 4 — Trends (radar + timeline)
+// Chart 4 — Trends (radar + timeline) — 4 regions
 // ──────────────────────────────────────────────────────────────
 async function initTrends() {
-  const data = await load('mood_weekly.json');
+  const data = await load('mood_regional.json');
+  if (!data || !data.length) return;
 
-  // Latest week radar
+  const REGION_COLORS = {
+    global:        '#58a6ff',
+    north_america: '#ffd166',
+    latin_america: '#ef476f',
+    europe:        '#06d6a0',
+  };
+  const REGION_LABELS = {
+    global:        '🌐 Global',
+    north_america: '🇺🇸 N. America',
+    latin_america: '🌎 Latin America',
+    europe:        '🌍 Europe',
+  };
+
+  // Latest week radar — one polygon per region
   const maxWeek = data.reduce((a,b) => a.week_start > b.week_start ? a : b).week_start;
   const latest  = data.filter(d => d.week_start === maxWeek);
 
-  const radarTraces = latest.map(row => ({
-    type: 'scatterpolar',
-    r: [...MOOD_COLS.map(c => parseFloat(row[c])), parseFloat(row[MOOD_COLS[0]])],
-    theta: [...MOOD_LABELS, MOOD_LABELS[0]],
-    fill: 'toself', name: row.chart_source, opacity: 0.65,
-    hovertemplate: `%{theta}: %{r:.1%}<extra>${row.chart_source}</extra>`,
-  }));
+  const radarTraces = latest.map(row => {
+    const region = row.region;
+    return {
+      type: 'scatterpolar',
+      r: [...MOOD_COLS.map(c => parseFloat(row[c]) || 0), parseFloat(row[MOOD_COLS[0]]) || 0],
+      theta: [...MOOD_LABELS, MOOD_LABELS[0]],
+      fill: 'toself',
+      name: REGION_LABELS[region] || region,
+      line: { color: REGION_COLORS[region] || '#888' },
+      opacity: 0.70,
+      hovertemplate: `%{theta}: %{r:.1%}<extra>${REGION_LABELS[region] || region}</extra>`,
+    };
+  });
 
   clearLoading('chart-radar');
-  // Full-width radar: chart on left 55%, legend on right
-  // Sources count → dynamic height
-  const radarHeight = Math.max(460, 40 + latest.length * 26);
   Plotly.newPlot('chart-radar', radarTraces, {
     ...PLOTLY_LAYOUT,
-    height: radarHeight,
+    height: 480,
     polar: {
       domain: { x: [0, 0.60], y: [0.04, 0.96] },
       radialaxis: { visible: true, range: [0, 1], tickformat: '.0%', gridcolor: '#30363d', tickfont: { size: 9 } },
       angularaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { size: 12, color: '#e6edf3' } },
       bgcolor: 'transparent',
     },
-    legend: {
-      x: 0.63, y: 1,
-      xanchor: 'left', yanchor: 'top',
-      bgcolor: 'transparent',
-      font: { size: 11 },
-      tracegroupgap: 2,
-    },
+    legend: { x: 0.63, y: 1, xanchor: 'left', yanchor: 'top', bgcolor: 'transparent', font: { size: 12 } },
     title: { text: `Week of ${maxWeek}`, font: { size: 12, color: '#7d8590' }, x: 0.30, y: 0.995 },
     margin: { l: 35, r: 20, t: 30, b: 20 },
   }, CONFIG);
 
-  // Dominant mood over time per source — cap to last 16 weeks
-  const sources = [...new Set(data.map(d => d.chart_source))];
+  // Dominant mood over time — one line per region (last 52 weeks)
+  const regions  = ['global','north_america','latin_america','europe'];
   const moodOrder = ['euphoric','melancholic','aggressive','peaceful','groovy'];
-  const allWeeks = [...new Set(data.map(d => d.week_start))].sort();
+  const allWeeks  = [...new Set(data.map(d => d.week_start))].sort();
   const recentWeeks = new Set(allWeeks.slice(-52));
 
-  const timeTraces = sources.map(src => {
-    const rows = data.filter(d => d.chart_source === src && recentWeeks.has(d.week_start))
-                     .sort((a,b) => a.week_start > b.week_start ? 1 : -1);
+  const timeTraces = regions.map(region => {
+    const label = REGION_LABELS[region] || region;
+    const rows  = data.filter(d => d.region === region && recentWeeks.has(d.week_start))
+                      .sort((a,b) => a.week_start > b.week_start ? 1 : -1);
+    if (!rows.length) return null;
     return {
       type: 'scatter', mode: 'lines+markers',
-      name: src,
+      name: label,
       x: rows.map(d => d.week_start),
       y: rows.map(d => d.dominant_mood),
-      hovertemplate: `${src}<br>%{x}<br>%{y}<extra></extra>`,
-      marker: { size: 7 },
+      line: { color: REGION_COLORS[region], width: 2 },
+      marker: { size: 7, color: REGION_COLORS[region] },
+      hovertemplate: `${label}<br>%{x}<br>%{y}<extra></extra>`,
     };
-  });
+  }).filter(Boolean);
 
   clearLoading('chart-mood-timeline');
-  const legendRows = Math.ceil(sources.length / 4);
   Plotly.newPlot('chart-mood-timeline', timeTraces, {
     ...PLOTLY_LAYOUT,
-    height: 380 + legendRows * 22,
+    height: 400,
     yaxis: { ...PLOTLY_LAYOUT.yaxis, categoryorder: 'array', categoryarray: moodOrder, automargin: true },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
-    legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.18, font:{size:10}, tracegroupgap:2 },
-    margin: { l: 40, r: 70, t: 20, b: 70 + legendRows * 20 },
+    legend: { bgcolor:'transparent', orientation:'h', x:0, y:-0.18, font:{size:11}, tracegroupgap:2 },
+    margin: { l: 40, r: 70, t: 20, b: 90 },
     hovermode: 'closest',
   }, CONFIG);
 }
@@ -1936,7 +2007,7 @@ async function initProcessSection() {
     load('news_sentiment.json'),
     load('timeline.json'),
     load('predictions.json'),
-    load('mood_weekly.json'),
+    load('mood_regional.json'),
   ]);
   const newsData  = newsRes.status  === 'fulfilled' ? newsRes.value  : [];
   const tlData    = tlRes.status    === 'fulfilled' ? tlRes.value    : [];
@@ -1960,8 +2031,8 @@ async function initProcessSection() {
     }
   }
 
-  const sources = new Set(moodData.map(d => d.chart_source));
-  if (sources.size) document.getElementById('stat-sources').textContent = sources.size;
+  const regions = new Set(moodData.map(d => d.region));
+  if (regions.size) document.getElementById('stat-sources').textContent = regions.size;
 
   // Chart explain captions
   if (tlData.length) {
@@ -1971,12 +2042,11 @@ async function initProcessSection() {
     if (el) el.textContent = `Peak anxiety index: ${maxAnx} across ${tlData.length} weeks of data`;
   }
 
-  if (tlData.length) {
-    const moodCounts = {};
-    tlData.forEach(d => { if (d.dominant_mood) moodCounts[d.dominant_mood] = (moodCounts[d.dominant_mood]||0)+1; });
-    const top = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0];
+  if (moodData.length) {
+    const regionSet = new Set(moodData.map(d => d.region));
+    const weekSet   = new Set(moodData.map(d => d.week_start));
     const el = document.getElementById('chart-explain-radar');
-    if (el && top) el.textContent = `"${top[0]}" led ${top[1]} of ${tlData.length} weeks tracked`;
+    if (el) el.textContent = `${regionSet.size} regions × ${weekSet.size} weeks of mood data`;
   }
 
   const corrEl = document.getElementById('chart-explain-corr');

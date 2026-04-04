@@ -54,9 +54,12 @@ FEATURE_COLS = [
     "spectral_centroid", "harmonic_percussive_ratio",
 ]
 
+REGIONS = ["north_america", "latin_america", "europe", "global"]
+
 GEN_SCHEMA = [
     bigquery.SchemaField("generation_id",        "STRING"),
     bigquery.SchemaField("week_start",           "DATE"),
+    bigquery.SchemaField("region",               "STRING"),
     bigquery.SchemaField("period",               "STRING"),   # "today"|"weekly"|"monthly"
     bigquery.SchemaField("mood_archetype",       "STRING"),
     bigquery.SchemaField("mood_blend_json",      "STRING"),   # {mood: prob}
@@ -97,12 +100,12 @@ SEASON_TEXTURE = {
 
 def ensure_gen_table(client: bigquery.Client) -> None:
     """Create generated_tracks with current schema. If the table exists but is
-    missing the 'period' column (old schema), drop and recreate it."""
+    missing the 'region' or 'period' column (old schema), drop and recreate it."""
     try:
         existing = client.get_table(GEN_TABLE)
         existing_cols = {f.name for f in existing.schema}
-        if "period" not in existing_cols:
-            logger.warning("generated_tracks missing 'period' column — dropping and recreating")
+        if "period" not in existing_cols or "region" not in existing_cols:
+            logger.warning("generated_tracks missing schema column(s) — dropping and recreating")
             client.delete_table(GEN_TABLE)
             import time as _time; _time.sleep(5)
     except Exception:
@@ -112,45 +115,46 @@ def ensure_gen_table(client: bigquery.Client) -> None:
     logger.info(f"Table ready: {GEN_TABLE}")
 
 
-def weekly_song_exists_this_week(client: bigquery.Client, week_start: str) -> bool:
-    """Return True if a weekly song has already been generated for the current week.
-    Returns False on any error (e.g. table missing period column = old schema)."""
+def weekly_song_exists_this_week(client: bigquery.Client, week_start: str, region: str) -> bool:
+    """Return True if a weekly song has already been generated for this week+region."""
     query = f"""
         SELECT COUNT(*) AS n
         FROM `{GEN_TABLE}`
         WHERE period = 'weekly'
+          AND region = '{region}'
           AND CAST(week_start AS STRING) = '{week_start}'
     """
     try:
         rows = list(client.query(query).result())
         return rows[0]["n"] > 0 if rows else False
     except Exception as e:
-        logger.warning(f"weekly_song_exists_this_week check failed ({e}) — assuming no song exists")
+        logger.warning(f"weekly_song_exists check failed ({e}) — assuming no song exists")
         return False
 
 
-def fetch_predictions_by_period(client: bigquery.Client) -> dict:
-    """Return the most recent prediction row per period (today/weekly/monthly)."""
+def fetch_predictions_by_region_period(client: bigquery.Client) -> dict:
+    """Return the most recent prediction row per (region, period).
+    Returns dict keyed as {region: {period: {...}}}."""
     query = f"""
-        SELECT period, predicted_mood, confidence, target_date, mood_blend_json
+        SELECT region, period, predicted_mood, confidence, target_date, mood_blend_json
         FROM `{PRED_TABLE}`
         WHERE period IN ('today', 'weekly', 'monthly')
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY period ORDER BY ingested_at DESC) = 1
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY region, period ORDER BY ingested_at DESC) = 1
     """
     rows = list(client.query(query).result())
     if not rows:
-        raise RuntimeError(
-            "No period predictions found. Run ml_predictions.py first."
-        )
+        raise RuntimeError("No period predictions found. Run ml_predictions.py first.")
     result = {}
     for r in rows:
-        result[str(r["period"])] = {
+        rgn = str(r["region"])
+        prd = str(r["period"])
+        result.setdefault(rgn, {})[prd] = {
             "predicted_mood":  str(r["predicted_mood"]),
             "confidence":      float(r["confidence"]),
             "target_date":     str(r["target_date"]),
             "mood_blend_json": str(r["mood_blend_json"] or "{}"),
         }
-    logger.info(f"Loaded {len(result)} period predictions: {list(result.keys())}")
+    logger.info(f"Loaded predictions for regions: {list(result.keys())}")
     return result
 
 
@@ -203,6 +207,7 @@ def log_to_bigquery(
     client: bigquery.Client,
     generation_id: str,
     week_start: str,
+    region: str,
     period: str,
     mood: str,
     mood_blend_json: str,
@@ -219,6 +224,7 @@ def log_to_bigquery(
     row = {
         "generation_id":       generation_id,
         "week_start":          week_start,
+        "region":              region,
         "period":              period,
         "mood_archetype":      mood,
         "mood_blend_json":     mood_blend_json,
@@ -232,7 +238,7 @@ def log_to_bigquery(
     if errors:
         logger.error(f"BQ insert errors: {errors}")
     else:
-        logger.info(f"Logged [{period}] generation to BigQuery")
+        logger.info(f"Logged [{region}/{period}] generation to BigQuery")
 
 
 # ── Scaler ───────────────────────────────────────────────────────────────────────
@@ -491,9 +497,10 @@ def upload_wav_to_gcs(
     sample_rate: int,
     mood: str,
     week_start: str,
+    region: str,
     period: str,
 ) -> str:
-    gcs_filename = f"{GCS_PREFIX}/{week_start}_{period}_{mood}.wav"
+    gcs_filename = f"{GCS_PREFIX}/{week_start}_{region}_{period}_{mood}.wav"
     gcs_uri = f"gs://{BUCKET_NAME}/{gcs_filename}"
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -523,8 +530,8 @@ def main():
     bq_client = bigquery.Client(project=PROJECT)
     ensure_gen_table(bq_client)
 
-    # 1. Fetch 3 period predictions from ml_predictions
-    predictions = fetch_predictions_by_period(bq_client)
+    # 1. Fetch per-region, per-period predictions from ml_predictions
+    region_predictions = fetch_predictions_by_region_period(bq_client)
 
     # 2. Load scaler once
     scaler_params = load_scaler_params(SCALER_PATH)
@@ -533,80 +540,89 @@ def main():
     pc = Pinecone(api_key=api_key)
     index = pc.Index(PINECONE_INDEX)
 
-    # 4. Compute week_start for logging (Monday of current week)
+    # 4. Calendar context
     today = date.today()
-    this_monday = today - timedelta(days=today.weekday())
+    this_monday    = today - timedelta(days=today.weekday())
     week_start_str = str(this_monday)
 
     # Decide which periods are due today:
     #   today   — always
-    #   weekly  — on Monday, OR any day if no song exists yet for this week
+    #   weekly  — on Monday, OR if no song yet for this week (checked per-region below)
     #   monthly — only on the 1st of the month
-    periods_due = {"today"}
-    if today.weekday() == 0 or not weekly_song_exists_this_week(bq_client, week_start_str):
-        periods_due.add("weekly")
-        if today.weekday() != 0:
-            logger.info("  weekly: no song found for this week — generating outside Monday")
+    base_periods_due = {"today"}
     if today.day == 1:
-        periods_due.add("monthly")
-    logger.info(f"Periods due today ({today}): {periods_due}")
+        base_periods_due.add("monthly")
+    logger.info(f"Base periods due today ({today}): {base_periods_due}")
 
-    # 5. Generate one song per period (only when due)
-    for period_name, pred in predictions.items():
-        if period_name not in periods_due:
-            logger.info(f"  Skipping [{period_name}] — not due today")
+    songs_generated = 0
+
+    # 5. Generate one song per region × period (only when due)
+    for region in REGIONS:
+        preds = region_predictions.get(region)
+        if not preds:
+            logger.warning(f"  [{region}] No predictions found — skipping")
             continue
-        mood           = pred["predicted_mood"]
-        mood_blend_str = pred["mood_blend_json"]
-        target_dt      = date.fromisoformat(pred["target_date"])
 
-        try:
-            mood_blend = json.loads(mood_blend_str)
-        except (json.JSONDecodeError, TypeError):
-            mood_blend = {mood: 1.0}
+        # Decide periods for this region
+        periods_due = set(base_periods_due)
+        if today.weekday() == 0 or not weekly_song_exists_this_week(bq_client, week_start_str, region):
+            periods_due.add("weekly")
+            if today.weekday() != 0:
+                logger.info(f"  [{region}] weekly: no song this week — generating outside Monday")
 
-        logger.info(f"── Period: {period_name} | mood: {mood} | target: {target_dt} ──")
+        for period_name in ("today", "weekly", "monthly"):
+            if period_name not in periods_due:
+                logger.info(f"  [{region}/{period_name}] Skipping — not due today")
+                continue
+            pred = preds.get(period_name)
+            if not pred:
+                logger.warning(f"  [{region}/{period_name}] No prediction row — skipping")
+                continue
 
-        # Get mood centroid → Pinecone top-K
-        centroid, centroid_features = get_mood_centroid(bq_client, mood, scaler_params)
-        similar_tracks = query_pinecone_top_k(index, centroid, mood)
+            mood           = pred["predicted_mood"]
+            mood_blend_str = pred["mood_blend_json"]
+            target_dt      = date.fromisoformat(pred["target_date"])
 
-        logger.info(f"  Top {len(similar_tracks)} similar tracks:")
-        for t in similar_tracks:
-            logger.info(f"    {t['score']:.3f}  {t['title']} — {t['artist']}")
+            try:
+                mood_blend = json.loads(mood_blend_str)
+            except (json.JSONDecodeError, TypeError):
+                mood_blend = {mood: 1.0}
 
-        # Build season-aware blended prompt
-        # centroid_features is the fallback so prompt always reflects the actual mood
-        # archetype even when Pinecone track names can't be matched in trending_historical
-        avg_features = compute_avg_features(bq_client, similar_tracks, centroid_features)
-        prompt = build_prompt(mood, mood_blend, avg_features, target_dt)
-        logger.info(f"  Prompt: {prompt}")
+            logger.info(f"── [{region}] {period_name} | mood: {mood} | target: {target_dt} ──")
 
-        # Generate audio
-        audio_np, sr = generate_audio(prompt)
-        duration_s = len(audio_np) / sr
+            centroid, centroid_features = get_mood_centroid(bq_client, mood, scaler_params)
+            similar_tracks = query_pinecone_top_k(index, centroid, mood)
+            logger.info(f"  Top {len(similar_tracks)} similar tracks:")
+            for t in similar_tracks:
+                logger.info(f"    {t['score']:.3f}  {t['title']} — {t['artist']}")
 
-        # Upload to GCS
-        gcs_path = upload_wav_to_gcs(audio_np, sr, mood, week_start_str, period_name)
+            avg_features = compute_avg_features(bq_client, similar_tracks, centroid_features)
+            prompt = build_prompt(mood, mood_blend, avg_features, target_dt)
+            logger.info(f"  Prompt: {prompt}")
 
-        # Log to BigQuery
-        generation_id = str(uuid.uuid4())
-        log_to_bigquery(
-            bq_client,
-            generation_id=generation_id,
-            week_start=week_start_str,
-            period=period_name,
-            mood=mood,
-            mood_blend_json=mood_blend_str,
-            prompt=prompt,
-            similar_tracks=similar_tracks,
-            gcs_path=gcs_path,
-            duration_s=duration_s,
-        )
+            audio_np, sr = generate_audio(prompt)
+            duration_s = len(audio_np) / sr
 
-        logger.info(f"  ✓ {period_name}: {mood} | {duration_s:.1f}s | {gcs_path}")
+            gcs_path = upload_wav_to_gcs(audio_np, sr, mood, week_start_str, region, period_name)
 
-    logger.info("─── MODULE 13 COMPLETE — 3 songs generated ───")
+            generation_id = str(uuid.uuid4())
+            log_to_bigquery(
+                bq_client,
+                generation_id=generation_id,
+                week_start=week_start_str,
+                region=region,
+                period=period_name,
+                mood=mood,
+                mood_blend_json=mood_blend_str,
+                prompt=prompt,
+                similar_tracks=similar_tracks,
+                gcs_path=gcs_path,
+                duration_s=duration_s,
+            )
+            logger.info(f"  ✓ [{region}/{period_name}]: {mood} | {duration_s:.1f}s | {gcs_path}")
+            songs_generated += 1
+
+    logger.info(f"─── MODULE 13 COMPLETE — {songs_generated} songs generated ───")
 
 
 if __name__ == "__main__":
