@@ -28,14 +28,45 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 # ── Config ──────────────────────────────────────────────────────────────────────
-PROJECT   = "soundpulse-production"
-DATASET   = "music_analytics"
-SRC_TABLE = f"{PROJECT}.{DATASET}.trending_historical"
-DST_TABLE = f"{PROJECT}.{DATASET}.audio_mood_clusters"
-AGG_TABLE = f"{PROJECT}.{DATASET}.audio_mood_weekly"
+PROJECT        = "soundpulse-production"
+DATASET        = "music_analytics"
+SRC_TABLE      = f"{PROJECT}.{DATASET}.trending_historical"
+DST_TABLE      = f"{PROJECT}.{DATASET}.audio_mood_clusters"
+AGG_TABLE      = f"{PROJECT}.{DATASET}.audio_mood_weekly"
+REGIONAL_TABLE = f"{PROJECT}.{DATASET}.audio_mood_regional"
 
-K_RANGE   = range(3, 8)     # try k=3..7, pick best silhouette
+K_RANGE      = range(3, 8)   # try k=3..7, pick best silhouette
 RANDOM_STATE = 42
+
+# ── Region mapping ───────────────────────────────────────────────────────────────
+# Maps Billboard chart names → standardised world region.
+# YouTube/iTunes/Last.fm market field is mapped via MARKET_REGION_MAP.
+CHART_REGION_MAP = {
+    # North America — US-centric Billboard charts
+    "Hot 100":              "north_america",
+    "Pop Songs":            "north_america",
+    "Dance Club Play":      "north_america",
+    "Rhythmic 40":          "north_america",
+    # Latin America — Billboard Latin genre charts
+    "Hot Latin Songs":           "latin_america",
+    "Latin":                     "latin_america",
+    "Latin Pop Airplay":         "latin_america",
+    "Regional Mexican Airplay":  "latin_america",
+    "Tropical Airplay":          "latin_america",
+    # Global — Billboard worldwide chart
+    "Global 200":           "global",
+    "Billboard Global 200": "global",
+}
+
+MARKET_REGION_MAP = {   # for YouTube / iTunes / Last.fm `market` field
+    "usa":             "north_america",
+    "latin_america":   "latin_america",
+    "central_america": "latin_america",
+    "europe":          "europe",
+    "global":          "global",
+}
+
+REGIONS = ["north_america", "latin_america", "europe", "global"]
 
 # 30 Librosa features (match BigQuery schema exactly)
 FEATURE_COLS = [
@@ -76,6 +107,23 @@ DST_SCHEMA = [
 AGG_SCHEMA = [
     bigquery.SchemaField("week_start",         "DATE"),
     bigquery.SchemaField("chart_name",         "STRING"),
+    bigquery.SchemaField("dominant_mood",      "STRING"),
+    bigquery.SchemaField("track_count",        "INTEGER"),
+    bigquery.SchemaField("euphoric_pct",       "FLOAT64"),
+    bigquery.SchemaField("melancholic_pct",    "FLOAT64"),
+    bigquery.SchemaField("aggressive_pct",     "FLOAT64"),
+    bigquery.SchemaField("peaceful_pct",       "FLOAT64"),
+    bigquery.SchemaField("groovy_pct",         "FLOAT64"),
+    bigquery.SchemaField("avg_valence",        "FLOAT64"),
+    bigquery.SchemaField("avg_energy",         "FLOAT64"),
+    bigquery.SchemaField("avg_danceability",   "FLOAT64"),
+    bigquery.SchemaField("avg_tempo",          "FLOAT64"),
+    bigquery.SchemaField("ingested_at",        "TIMESTAMP"),
+]
+
+REGIONAL_SCHEMA = [
+    bigquery.SchemaField("week_start",         "DATE"),
+    bigquery.SchemaField("region",             "STRING"),
     bigquery.SchemaField("dominant_mood",      "STRING"),
     bigquery.SchemaField("track_count",        "INTEGER"),
     bigquery.SchemaField("euphoric_pct",       "FLOAT64"),
@@ -300,9 +348,8 @@ def main():
     ]
     streaming_insert(client, DST_TABLE, track_rows)
 
-    # 7. Weekly aggregation
-    logger.info("Building weekly mood aggregates …")
-    # week_start already exists in the source table — just normalise to string
+    # 7. Weekly aggregation by chart (existing table — preserved for backward compat)
+    logger.info("Building weekly mood aggregates by chart …")
     df["week_start"] = pd.to_datetime(df["week_start"]).dt.date.astype(str)
 
     agg_rows = []
@@ -330,12 +377,80 @@ def main():
     ensure_table(client, AGG_TABLE, AGG_SCHEMA)
     streaming_insert(client, AGG_TABLE, agg_rows)
 
-    # 8. Summary
+    # 8. Regional aggregation — group by (week_start, region)
+    logger.info("Building regional mood aggregates …")
+    df["region"] = df["chart_name"].map(CHART_REGION_MAP).fillna("global")
+
+    # Z-score relative dominant_mood per region: label each week by which mood is
+    # most above its own historical average within that region.
+    regional_rows = []
+    for region, rdf in df.groupby("region"):
+        # Compute per-week mood percentages within this region
+        week_pcts = []
+        for week_start, grp in rdf.groupby("week_start"):
+            mood_counts = grp["mood_archetype"].value_counts()
+            total       = len(grp)
+            pcts        = {arch: mood_counts.get(arch, 0) / total for arch in ARCHETYPE_NAMES}
+            pcts["week_start"]       = str(week_start)
+            pcts["track_count"]      = total
+            pcts["avg_valence"]      = float(grp["valence"].mean())
+            pcts["avg_energy"]       = float(grp["energy"].mean())
+            pcts["avg_danceability"] = float(grp["danceability"].mean())
+            pcts["avg_tempo"]        = float(grp["tempo"].mean())
+            week_pcts.append(pcts)
+
+        if not week_pcts:
+            continue
+        wpdf = pd.DataFrame(week_pcts)
+
+        # Z-score relative labeling within this region's own history
+        active_archetypes = ["euphoric", "melancholic", "aggressive"]
+        z_cols = []
+        for arch in active_archetypes:
+            col = f"{arch}_pct"
+            mean_v = wpdf[col].mean()
+            std_v  = wpdf[col].std()
+            z_col  = f"{col}_z"
+            if pd.notna(std_v) and std_v > 1e-4:
+                wpdf[z_col] = (wpdf[col] - mean_v) / std_v
+            else:
+                wpdf[z_col] = 0.0
+            z_cols.append(z_col)
+
+        z_name_map = {f"{a}_pct_z": a for a in active_archetypes}
+        wpdf["dominant_mood"] = wpdf[z_cols].idxmax(axis=1).map(z_name_map).fillna("aggressive")
+
+        mood_dist = wpdf["dominant_mood"].value_counts().to_dict()
+        logger.info(f"  [{region}] {len(wpdf)} weeks — dominant_mood: {mood_dist}")
+
+        for _, row in wpdf.iterrows():
+            regional_rows.append({
+                "week_start":       str(row["week_start"]),
+                "region":           region,
+                "dominant_mood":    row["dominant_mood"],
+                "track_count":      int(row["track_count"]),
+                "euphoric_pct":     round(float(row["euphoric"]),    6),
+                "melancholic_pct":  round(float(row["melancholic"]), 6),
+                "aggressive_pct":   round(float(row["aggressive"]),  6),
+                "peaceful_pct":     round(float(row.get("peaceful", 0)), 6),
+                "groovy_pct":       round(float(row.get("groovy", 0)),   6),
+                "avg_valence":      round(float(row["avg_valence"]),      6),
+                "avg_energy":       round(float(row["avg_energy"]),       6),
+                "avg_danceability": round(float(row["avg_danceability"]), 6),
+                "avg_tempo":        round(float(row["avg_tempo"]),        6),
+                "ingested_at":      now_ts,
+            })
+
+    ensure_table(client, REGIONAL_TABLE, REGIONAL_SCHEMA)
+    streaming_insert(client, REGIONAL_TABLE, regional_rows)
+
+    # 9. Summary
     logger.info("─── LAYER 2 COMPLETE ───")
     logger.info(f"  Tracks clustered     : {len(df):,}")
     logger.info(f"  Optimal k            : {best_k}")
     logger.info(f"  Silhouette score     : {best_score:.4f}")
     logger.info(f"  Weekly agg rows      : {len(agg_rows):,}")
+    logger.info(f"  Regional agg rows    : {len(regional_rows):,}")
     arch_dist = df["mood_archetype"].value_counts().to_dict()
     logger.info(f"  Archetype distribution: {arch_dist}")
 

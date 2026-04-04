@@ -49,7 +49,8 @@ def _make_clients():
     return bigquery.Client(project=PROJECT), storage.Client(project=PROJECT)
 
 
-DATASET   = f"{PROJECT}.dbt_transformed"
+DATASET    = f"{PROJECT}.dbt_transformed"
+RAW        = f"{PROJECT}.music_analytics"    # raw BQ tables (pre-dbt)
 GCS_BUCKET = "soundpulse-prod-raw-lake"
 
 DOCS      = Path(__file__).parent.parent / "docs"
@@ -60,6 +61,8 @@ HIST_DIR  = AUDIO_DIR / "history"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 HIST_DIR.mkdir(parents=True, exist_ok=True)
+
+REGIONS = ["north_america", "latin_america", "europe", "global"]
 
 WAV_MAP = {
     "today":   "today.wav",
@@ -197,158 +200,210 @@ def export_news_sentiment(client):
     write_json(DATA_DIR / "news_sentiment.json", data)
 
 
-# ── Generated tracks export (updated for multi-period) ───────────────────────────
+# ── Mood Regional export (new) ────────────────────────────────────────────────────
+
+def export_mood_regional(client: bigquery.Client) -> None:
+    """Export audio_mood_regional → mood_regional.json for the region-tab charts."""
+    data = bq_to_json(client, f"""
+        SELECT
+            CAST(week_start AS STRING) AS week_start,
+            region, dominant_mood, track_count,
+            CAST(euphoric_pct    AS FLOAT64) AS euphoric_pct,
+            CAST(melancholic_pct AS FLOAT64) AS melancholic_pct,
+            CAST(aggressive_pct  AS FLOAT64) AS aggressive_pct,
+            CAST(peaceful_pct    AS FLOAT64) AS peaceful_pct,
+            CAST(groovy_pct      AS FLOAT64) AS groovy_pct,
+            CAST(avg_valence      AS FLOAT64) AS avg_valence,
+            CAST(avg_energy       AS FLOAT64) AS avg_energy,
+            CAST(avg_danceability AS FLOAT64) AS avg_danceability,
+            CAST(avg_tempo        AS FLOAT64) AS avg_tempo
+        FROM `{RAW}.audio_mood_regional`
+        ORDER BY week_start ASC, region ASC
+    """)
+    write_json(DATA_DIR / "mood_regional.json", data)
+
+
+# ── Generated tracks export (regional) ───────────────────────────────────────────
 
 def export_generated_tracks(client: bigquery.Client) -> dict:
-    """Return latest row per period as a dict keyed by period name."""
+    """Return latest row per (region, period). Writes generated_tracks.json.
+    Returns dict: {region: {period: row}} for WAV download step."""
     data = bq_to_json(client, f"""
         SELECT
             generation_id,
             CAST(week_start AS STRING) AS week_start,
-            period,
+            region, period,
             mood_archetype, prompt_text,
             mood_blend_json,
             similar_tracks_json, audio_gcs_path,
             CAST(duration_seconds AS FLOAT64) AS duration_seconds,
             CAST(generated_at AS STRING) AS generated_at
-        FROM `{DATASET}.stg_generated_tracks`
+        FROM `{RAW}.generated_tracks`
         WHERE period IN ('today', 'weekly', 'monthly')
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY period ORDER BY generated_at DESC) = 1
-        ORDER BY generated_at DESC
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY region, period ORDER BY generated_at DESC) = 1
+        ORDER BY region ASC, generated_at DESC
     """)
     write_json(DATA_DIR / "generated_tracks.json", data)
 
-    by_period = {}
+    by_region_period: dict[str, dict] = {}
     for row in data:
-        p = row.get("period")
-        if p and p not in by_period:
-            by_period[p] = row
+        rgn = row.get("region") or "global"
+        prd = row.get("period")
+        if prd:
+            by_region_period.setdefault(rgn, {})[prd] = row
 
-    # Backwards-compat fallback: if no period rows at all, grab latest row (old schema)
-    if not by_period:
-        fallback = bq_to_json(client, f"""
-            SELECT
-                generation_id,
-                CAST(week_start AS STRING) AS week_start,
-                mood_archetype, prompt_text,
-                similar_tracks_json, audio_gcs_path,
-                CAST(duration_seconds AS FLOAT64) AS duration_seconds,
-                CAST(generated_at AS STRING) AS generated_at
-            FROM `{DATASET}.stg_generated_tracks`
-            ORDER BY generated_at DESC
-            LIMIT 1
-        """)
-        if fallback:
-            by_period["today"] = fallback[0]
-
-    logger.info(f"  generated_tracks: periods found = {list(by_period.keys())}")
-    return by_period
+    logger.info(f"  generated_tracks: regions = {list(by_region_period.keys())}")
+    return by_region_period
 
 
 # ── WAV download ─────────────────────────────────────────────────────────────────
 
-def download_wavs(by_period: dict, gcs_client: storage.Client) -> None:
-    """Download live WAVs for each period + backwards-compat track.wav."""
+def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
+    """Download WAVs into docs/audio/{region}/{period}.wav.
+    Also maintains docs/audio/{period}.wav as a copy of the global region
+    for backward compatibility with the existing site.
+    """
     bucket = gcs_client.bucket(GCS_BUCKET)
 
-    for period, row in by_period.items():
-        gcs_path = row.get("audio_gcs_path", "")
-        if not gcs_path.startswith("gs://"):
-            logger.warning(f"  [{period}] unexpected GCS path: {gcs_path}")
+    for region in REGIONS:
+        period_rows = by_region_period.get(region, {})
+        if not period_rows:
+            logger.warning(f"  [{region}] No generated tracks — skipping WAV download")
             continue
 
-        blob_name = gcs_path[5:].split("/", 1)[1]
-        dest_name = WAV_MAP.get(period, f"{period}.wav")
+        region_dir = AUDIO_DIR / region
+        region_dir.mkdir(parents=True, exist_ok=True)
+
+        for period, row in period_rows.items():
+            gcs_path = row.get("audio_gcs_path", "")
+            if not gcs_path.startswith("gs://"):
+                logger.warning(f"  [{region}/{period}] unexpected GCS path: {gcs_path}")
+                continue
+
+            blob_name = gcs_path[5:].split("/", 1)[1]
+            dest_name = WAV_MAP.get(period, f"{period}.wav")
+            dest = region_dir / dest_name
+
+            try:
+                bucket.blob(blob_name).download_to_filename(str(dest))
+                size_kb = dest.stat().st_size // 1024
+                logger.info(f"  → docs/audio/{region}/{dest_name} ({size_kb} KB)")
+            except Exception as e:
+                logger.error(f"  [{region}/{period}] WAV download failed: {e}")
+
+    # Backwards-compat: docs/audio/{period}.wav = global region's copy
+    global_periods = by_region_period.get("global", {})
+    for period, dest_name in WAV_MAP.items():
+        src = AUDIO_DIR / "global" / dest_name
         dest = AUDIO_DIR / dest_name
+        if src.exists():
+            shutil.copy(src, dest)
+            logger.info(f"  → docs/audio/{dest_name} (copy of global/{dest_name})")
+        elif not global_periods:
+            # no global region at all — use first available region
+            for rgn in REGIONS:
+                alt = AUDIO_DIR / rgn / dest_name
+                if alt.exists():
+                    shutil.copy(alt, dest)
+                    logger.info(f"  → docs/audio/{dest_name} (copy of {rgn}/{dest_name})")
+                    break
 
-        try:
-            bucket.blob(blob_name).download_to_filename(str(dest))
-            size_kb = dest.stat().st_size // 1024
-            logger.info(f"  → docs/audio/{dest_name} ({size_kb} KB) from {gcs_path}")
-        except Exception as e:
-            logger.error(f"  [{period}] WAV download failed: {e}")
-
-    # Backwards-compat: track.wav = today.wav
+    # track.wav = today.wav (oldest compat)
     today_wav = AUDIO_DIR / "today.wav"
     track_wav = AUDIO_DIR / "track.wav"
     if today_wav.exists():
         shutil.copy(today_wav, track_wav)
-        logger.info(f"  → docs/audio/track.wav (copy of today.wav, backwards-compat)")
+        logger.info(f"  → docs/audio/track.wav (copy of today.wav)")
 
 
 # ── History management ────────────────────────────────────────────────────────────
 
-def update_history(by_period: dict) -> None:
-    """Copy each period's live WAV into docs/audio/history/ with a datestamp.
-    Only creates the file if it doesn't already exist for that date+period.
-    This means the pipeline can run daily without duplicating files.
+def update_history(by_region_period: dict) -> None:
+    """Copy each region+period's live WAV into docs/audio/history/ with a datestamp.
+    Filename: {date}_{region}_{period}.wav — one file per run per region+period.
     """
-    today = _date.today()
-    monday = today - timedelta(days=today.weekday())
+    today     = _date.today()
+    monday    = today - timedelta(days=today.weekday())
     month_str = today.strftime("%Y-%m")
 
     stamp_map = {
-        "today":   f"{today.isoformat()}_today.wav",
-        "weekly":  f"{monday.isoformat()}_weekly.wav",
-        "monthly": f"{month_str}-01_monthly.wav",
+        "today":   today.isoformat(),
+        "weekly":  monday.isoformat(),
+        "monthly": f"{month_str}-01",
     }
 
-    for period, fname in stamp_map.items():
-        src = AUDIO_DIR / WAV_MAP.get(period, f"{period}.wav")
-        dest = HIST_DIR / fname
-        if src.exists() and not dest.exists():
-            shutil.copy(src, dest)
-            logger.info(f"  → docs/audio/history/{fname} (archived)")
-        elif dest.exists():
-            logger.info(f"  history/{fname} already exists — skipping")
-        else:
-            logger.warning(f"  src {src} not found — cannot archive {fname}")
+    for region in REGIONS:
+        region_dir = AUDIO_DIR / region
+        for period, date_str in stamp_map.items():
+            src  = region_dir / WAV_MAP.get(period, f"{period}.wav")
+            fname = f"{date_str}_{region}_{period}.wav"
+            dest  = HIST_DIR / fname
+            if src.exists() and not dest.exists():
+                shutil.copy(src, dest)
+                logger.info(f"  → docs/audio/history/{fname} (archived)")
+            elif dest.exists():
+                logger.info(f"  history/{fname} already exists — skipping")
+            # silently skip if src doesn't exist (region had no data)
 
 
 def export_song_history(client: bigquery.Client) -> None:
-    """Build song_history.json index from docs/audio/history/ + BQ metadata."""
-    # Fetch all generated_tracks metadata with period info
+    """Build song_history.json index from docs/audio/history/ + BQ metadata.
+    History filenames are now: {date}_{region}_{period}.wav
+    """
     try:
         all_tracks = bq_to_json(client, f"""
             SELECT
                 CAST(week_start AS STRING) AS week_start,
-                period,
+                region, period,
                 mood_archetype, prompt_text,
                 CAST(duration_seconds AS FLOAT64) AS duration_seconds,
                 CAST(generated_at AS STRING) AS generated_at
-            FROM `{DATASET}.stg_generated_tracks`
+            FROM `{RAW}.generated_tracks`
             WHERE period IS NOT NULL
             ORDER BY generated_at DESC
         """)
     except Exception as e:
-        logger.warning(f"Could not load stg_generated_tracks for history: {e}")
+        logger.warning(f"Could not load generated_tracks for history: {e}")
         all_tracks = []
 
-    # Index history WAV files
+    # Index history WAV files — filename: {date}_{region}_{period}.wav
     history = []
     for wav in sorted(HIST_DIR.glob("*.wav"), reverse=True):
-        stem_parts = wav.stem.split("_", 1)
-        if len(stem_parts) != 2:
+        parts = wav.stem.split("_")
+        # Expect at least: date, region_part1 (possibly multi-word), period
+        if len(parts) < 3:
             continue
-        date_str, period = stem_parts
+        # Last part is period, first part is date, middle parts form region
+        period   = parts[-1]
+        date_str = parts[0]
+        region   = "_".join(parts[1:-1])
 
-        # Match metadata: find row for this period (best-effort proximity)
-        meta = next((t for t in all_tracks if t.get("period") == period), {})
-
+        meta = next(
+            (t for t in all_tracks
+             if t.get("period") == period and t.get("region") == region),
+            {}
+        )
         label_map = {
             "today":   date_str,
             "weekly":  f"Week of {date_str}",
-            "monthly": date_str[:7],  # YYYY-MM
+            "monthly": date_str[:7],
         }
+        region_label = {
+            "north_america": "N. America",
+            "latin_america": "Latin America",
+            "europe":        "Europe",
+            "global":        "Global",
+        }.get(region, region.replace("_", " ").title())
         history.append({
-            "period":         period,
-            "date":           date_str,
-            "label":          label_map.get(period, date_str),
-            "mood_archetype": meta.get("mood_archetype") or "",
-            "confidence":     0,   # not stored in stg — kept as 0 for now
-            "prompt_text":    meta.get("prompt_text") or "",
+            "period":           period,
+            "region":           region,
+            "region_label":     region_label,
+            "date":             date_str,
+            "label":            f"{label_map.get(period, date_str)} — {region_label}",
+            "mood_archetype":   meta.get("mood_archetype") or "",
+            "prompt_text":      meta.get("prompt_text") or "",
             "duration_seconds": meta.get("duration_seconds") or 0,
-            "audio_path":     f"audio/history/{wav.name}",
+            "audio_path":       f"audio/history/{wav.name}",
         })
 
     write_json(DATA_DIR / "song_history.json", history)
@@ -445,6 +500,11 @@ def main():
     with open(DATA_DIR / "mood_weekly.json") as f:
         counts["mood_weekly"] = len(json.load(f))
 
+    logger.info("Exporting mood regional (4 regions)...")
+    export_mood_regional(bq_client)
+    with open(DATA_DIR / "mood_regional.json") as f:
+        counts["mood_regional"] = len(json.load(f))
+
     logger.info("Exporting news sentiment...")
     export_news_sentiment(bq_client)
     with open(DATA_DIR / "news_sentiment.json") as f:
@@ -456,14 +516,14 @@ def main():
         counts["prediction_accuracy"] = len(json.load(f))
 
     logger.info("Exporting generated tracks...")
-    by_period = export_generated_tracks(bq_client)
-    counts["generated_tracks"] = len(by_period)
+    by_region_period = export_generated_tracks(bq_client)
+    counts["generated_tracks"] = sum(len(v) for v in by_region_period.values())
 
     logger.info("Downloading WAVs from GCS...")
-    download_wavs(by_period, gcs_client)
+    download_wavs(by_region_period, gcs_client)
 
     logger.info("Updating song history archive...")
-    update_history(by_period)
+    update_history(by_region_period)
 
     logger.info("Exporting song history index...")
     export_song_history(bq_client)
