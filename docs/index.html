@@ -1779,8 +1779,17 @@ function renderShap(region) {
       margin: { l: 50, r: 100, t: 80, b: 50 },
     }, CONFIG);
   } else {
+    // collect top 10 features across all archetypes
+    const topFeatures = new Set();
+    archetypes.forEach(arch => {
+      shapData.filter(d => d.mood_archetype === arch)
+        .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap))
+        .slice(0, 10)
+        .forEach(d => topFeatures.add(d.feature));
+    });
+
     const shapTraces = archetypes.map(arch => {
-      const rows = shapData.filter(d => d.mood_archetype === arch)
+      const rows = shapData.filter(d => d.mood_archetype === arch && topFeatures.has(d.feature))
         .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap));
       return {
         type: 'bar', orientation: 'h', name: arch,
