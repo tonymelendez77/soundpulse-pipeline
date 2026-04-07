@@ -295,8 +295,7 @@ def main():
     _write_weekly_aggregates(client, df_all, now_ts)
 
     # Summary
-    logger.info("LAYER 1 COMPLETE ")
-    logger.info(f"  New articles classified : {len(rows):,}")
+    logger.info(f"Done: {len(rows):,} articles classified")
     emotion_counts = df["emotion"].value_counts().to_dict()
     logger.info(f"  Emotion distribution    : {emotion_counts}")
 
