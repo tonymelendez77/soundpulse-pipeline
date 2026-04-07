@@ -1544,6 +1544,26 @@ window.selectRegion = function(region) {
 
   const base   = REGION_AUDIO_BASE[region] || 'audio/global/';
   const tracks = window._tracksByRegion[region] || {};
+  const hasData = Object.keys(tracks).length > 0;
+  const grid = document.getElementById('audio-grid');
+  const noData = document.getElementById('audio-no-data');
+
+  if (!hasData) {
+    if (grid) grid.style.display = 'none';
+    if (!noData) {
+      const msg = document.createElement('div');
+      msg.id = 'audio-no-data';
+      msg.style.cssText = 'text-align:center;color:#7d8590;font-size:.9rem;padding:40px 20px;max-width:500px;margin:20px auto;';
+      msg.innerHTML = 'No songs generated for this region yet. Data accumulates from daily pipeline runs.';
+      grid.parentNode.insertBefore(msg, grid.nextSibling);
+    } else {
+      noData.style.display = 'block';
+    }
+    return;
+  }
+
+  if (grid) grid.style.display = '';
+  if (noData) noData.style.display = 'none';
 
   ['today','weekly','monthly'].forEach(period => {
     const t     = tracks[period];
@@ -1560,7 +1580,7 @@ window.selectRegion = function(region) {
     if (player) {
       const src = player.querySelector('source');
       if (src) {
-        src.src = `${base}${period}.wav`;
+        src.src = t ? `${base}${period}.wav` : '';
         player.load();
       }
     }
