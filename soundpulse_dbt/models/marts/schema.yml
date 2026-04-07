@@ -95,8 +95,7 @@ models:
         tests:
           - not_null
       - name: correct
-        tests:
-          - not_null
+        description: NULL for forward-inference rows (future weeks)
       - name: overall_accuracy
         tests:
           - not_null

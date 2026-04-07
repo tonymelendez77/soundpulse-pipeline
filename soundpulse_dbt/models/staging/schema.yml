@@ -150,11 +150,10 @@ models:
           - not_null
 
   - name: stg_weekly_features
-    description: Week-level joined emotion+audio features table — XGBoost input
+    description: Week+region joined emotion+audio features, one row per week per region
     columns:
       - name: week_start
         tests:
-          - unique
           - not_null
       - name: dominant_emotion
         tests:
@@ -164,11 +163,10 @@ models:
           - not_null
 
   - name: stg_ml_predictions
-    description: XGBoost lag-1 predictions of next week's dominant mood archetype
+    description: XGBoost predictions, one row per week per region (+ 3 forward per region)
     columns:
       - name: week_start
         tests:
-          - unique
           - not_null
       - name: actual_mood
         tests:
@@ -190,7 +188,11 @@ models:
               arguments:
                 values: ['avg_fear', 'avg_anger', 'avg_joy', 'avg_sadness',
                          'avg_surprise', 'avg_disgust', 'avg_neutral',
-                         'anxiety_index', 'tension_index', 'positivity_index']
+                         'anxiety_index', 'tension_index', 'positivity_index',
+                         'euphoric_pct', 'melancholic_pct', 'aggressive_pct',
+                         'peaceful_pct', 'groovy_pct',
+                         'month_sin', 'month_cos', 'week_of_yr_sin', 'week_of_yr_cos',
+                         'season', 'is_holiday_season', 'is_summer', 'is_new_year_period']
       - name: mood_archetype
         tests:
           - not_null
