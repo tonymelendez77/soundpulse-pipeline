@@ -153,32 +153,38 @@ def compute_avg_features(
     if not titles_artists:
         return centroid_features
 
-    conditions = " OR ".join(
-        f"(LOWER(TRIM(title)) = '{t.lower().replace(chr(39), chr(39)*2)}' "
-        f"AND LOWER(TRIM(artist)) = '{a.lower().replace(chr(39), chr(39)*2)}')"
-        for t, a in titles_artists
-    )
-    feature_cols_sql = ", ".join(f"AVG({c}) AS {c}" for c in FEATURE_COLS)
-    query = f"""
-        SELECT {feature_cols_sql}
-        FROM `{PROJECT}.{DATASET}.trending_historical`
-        WHERE {conditions}
-    """
-    rows = list(client.query(query).result())
-    if not rows or all(rows[0][c] is None for c in FEATURE_COLS):
-        query2 = f"""
+    def _safe_sql_str(s):
+        return s.lower().replace("\\", "\\\\").replace("'", "\\'")
+
+    try:
+        conditions = " OR ".join(
+            f"(LOWER(TRIM(title)) = '{_safe_sql_str(t)}' "
+            f"AND LOWER(TRIM(artist)) = '{_safe_sql_str(a)}')"
+            for t, a in titles_artists
+        )
+        feature_cols_sql = ", ".join(f"AVG({c}) AS {c}" for c in FEATURE_COLS)
+        query = f"""
             SELECT {feature_cols_sql}
-            FROM `{PROJECT}.{DATASET}.trending_tracks`
+            FROM `{PROJECT}.{DATASET}.trending_historical`
             WHERE {conditions}
         """
-        rows = list(client.query(query2).result())
+        rows = list(client.query(query).result())
+        if not rows or all(rows[0][c] is None for c in FEATURE_COLS):
+            query2 = f"""
+                SELECT {feature_cols_sql}
+                FROM `{PROJECT}.{DATASET}.trending_tracks`
+                WHERE {conditions}
+            """
+            rows = list(client.query(query2).result())
 
-    if rows and rows[0]["tempo"] is not None:
-        found = {c: float(rows[0][c] or centroid_features.get(c, 0.5)) for c in FEATURE_COLS}
-        logger.info("avg_features: resolved from similar tracks in BQ")
-        return found
+        if rows and rows[0]["tempo"] is not None:
+            found = {c: float(rows[0][c] or centroid_features.get(c, 0.5)) for c in FEATURE_COLS}
+            logger.info("avg_features: resolved from similar tracks in BQ")
+            return found
+    except Exception as e:
+        logger.warning(f"avg_features query failed ({e}), using centroid")
 
-    logger.info("avg_features: track names not matched in BQ — using mood centroid features")
+    logger.info("avg_features: using mood centroid features")
     return centroid_features
 
 
