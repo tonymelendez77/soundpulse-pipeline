@@ -461,7 +461,7 @@ def backfill_gaps(gcs_client: storage.Client, missing_dates: list[str]) -> None:
 
     for date_str in missing_dates:
         compact = date_str.replace("-", "")
-        print(f"\n[smart-resume] ── Backfilling {date_str} ──")
+        print(f"\n[smart-resume] Backfilling {date_str}")
 
         # Billboard (supports historical date URLs)
         try:
@@ -509,7 +509,7 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     today_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
-    # ── Smart resume: detect + fill gaps from missed runs ───
+    # Smart resume: detect + fill gaps from missed runs
     gcs_client = storage.Client()
 
     # Check if charts already ran today (prevents duplicate ingestion on re-trigger)
@@ -523,7 +523,7 @@ def main():
     missing_dates = get_missing_dates(gcs_client, "raw/trending_tracks_", days_back=7)
     backfill_gaps(gcs_client, missing_dates)
 
-# ── STEP 1: Fetch all trending sources ──────────────────
+# STEP 1: Fetch all trending sources
     if charts_already_done:
         print("\n[1-4/9] Charts already fetched today — loading from GCS skipped, using empty frames.")
         itunes_charts_df    = pd.DataFrame(columns=["title","artist","release_date","genre","source","country_code","chart_rank"])
@@ -555,7 +555,7 @@ def main():
         youtube_trending_df["source"] = "youtube_chart"
         print(f"[OK] YouTube: {len(youtube_trending_df)} videos")
 
-    # ── STEP 2: Combine into master list ────────────────────
+    # STEP 2: Combine into master list
     print("\n[6/9] Building master trending list...")
 
     itunes_cols = itunes_charts_df[["title", "artist", "release_date", "genre", "source", "country_code", "chart_rank"]].copy()
@@ -590,7 +590,7 @@ def main():
     master_df = pd.concat([itunes_cols, lastfm_cols, billboard_cols, youtube_cols], ignore_index=True)
     print(f"[OK] Master list before filters: {len(master_df)} rows")
 
-    # ── STEP 3: Apply filters ────────────────────────────────
+    # STEP 3: Apply filters
     print("\n[7/9] Applying filters...")
     master_df     = apply_release_date_filter(master_df, date_col="release_date")
     master_df     = apply_artist_newness_filter(master_df)
@@ -602,7 +602,7 @@ def main():
         unique_tracks = unique_tracks.head(30).copy()
         print(f"[TEST MODE] Processing first 30 tracks only")
 
-    # ── STEP 4: Get iTunes preview URLs ─────────────────────
+    # STEP 4: Get iTunes preview URLs
     print("\n[7/9] Fetching iTunes preview URLs...")
     unique_artists        = unique_tracks["artist"].unique()[:100]
     itunes_search_results = []
@@ -612,7 +612,7 @@ def main():
     itunes_search_df = pd.DataFrame(itunes_search_results).drop_duplicates(subset=["itunes_track_id"]) if itunes_search_results else pd.DataFrame()
     print(f"[OK] iTunes search catalog: {len(itunes_search_df)} tracks")
 
-    # ── STEP 5: 8-layer matching ─────────────────────────────
+    # STEP 5: 8-layer matching
     print("\n[9/9] Matching trending songs to iTunes previews...")
     if itunes_search_df.empty:
         print("[WARN] No iTunes search results — skipping matching")
@@ -623,25 +623,25 @@ def main():
 
     save_diagnostic_json(matched_df, unmatched_df if not unmatched_df.empty else pd.DataFrame())
 
-    # ── STEP 6: Spotify metadata enrichment ─────────────────
+    # STEP 6: Spotify metadata enrichment
     print("\nEnriching with Spotify metadata...")
     matched_df = enrich_with_spotify_metadata(matched_df)
     matched_df["ingested_at"] = datetime.now(tz=timezone.utc).isoformat()
 
-    # ── STEP 7: Librosa audio features ──────────────────────
+    # STEP 7: Librosa audio features
     print("\nExtracting Librosa audio features...")
     enriched_df = enrich_with_librosa_features(matched_df)
     print(f"[OK] Enriched tracks: {len(enriched_df)}")
 
-# ── STEP 8: Upload trending tracks to GCS ───────────────
+# STEP 8: Upload trending tracks to GCS
     print("\nUploading trending tracks to GCS...")
     upload_to_gcs(enriched_df, f"trending_tracks_{timestamp}", prefix="raw")
 
-    # ── STEP 9: Upload YouTube trending to GCS ──────────────
+    # STEP 9: Upload YouTube trending to GCS
     print("\nUploading YouTube trending to GCS...")
     upload_to_gcs(youtube_trending_df, f"youtube_{timestamp}", prefix="raw/trending")
 
-    # ── STEP 10: Fetch and upload sentiment sources ──────────
+    # STEP 10: Fetch and upload sentiment sources
     print("\nFetching sentiment sources...")
 
     print("  Fetching Reddit posts...")

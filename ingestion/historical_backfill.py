@@ -588,7 +588,7 @@ def main():
             bq_client.create_table(bigquery.Table(full_table, schema=schema))
             logger.info(f"[OK] Created {full_table}")
 
-    # ── Smart resume: load existing date/week sets, skip what's already in BQ ─
+    # -- Smart resume: load existing date/week sets, skip what's already in BQ ─
     print("\n[1b/6] Scanning existing data in BQ...")
     existing_news_dates  = get_existing_news_dates(bq_client)
     existing_music_weeks = get_existing_music_weeks(bq_client)

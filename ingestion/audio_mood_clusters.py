@@ -121,8 +121,8 @@ ARCHETYPE_NAMES = ["euphoric", "melancholic", "aggressive", "peaceful", "groovy"
 
 
 def name_clusters(centroids_df: pd.DataFrame, k: int) -> dict[int, str]:
-    """Map cluster IDs to mood archetypes using Russell's Circumplex quadrants.
-    Uses raw centroid values (not normalised) to avoid all clusters looking the same."""
+    """Map cluster IDs to mood archetypes via valence x arousal quadrants.
+    Uses raw centroid values so chart-wide similarity doesn't flatten the scores."""
 
     def _quadrant_score(v, e):
         high_v = max(0.0, (v - 0.5) * 2.0)

@@ -37,7 +37,7 @@ MOOD_COLS = ["euphoric_pct", "melancholic_pct", "aggressive_pct", "peaceful_pct"
 MOOD_LABELS = ["Euphoric", "Melancholic", "Aggressive", "Peaceful", "Groovy"]
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# Helpers
 
 @st.cache_data(ttl=300)
 def fetch(endpoint: str, params: dict = None) -> list[dict]:
@@ -50,7 +50,7 @@ def df(endpoint: str, params: dict = None) -> pd.DataFrame:
     return pd.DataFrame(fetch(endpoint, params))
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# Sidebar
 
 with st.sidebar:
     st.title("🎵 SoundPulse")
@@ -86,7 +86,7 @@ with st.sidebar:
     )
 
 
-# ── Page header ───────────────────────────────────────────────────────────────
+# Page header
 
 st.title("🎵 Music Trends")
 st.markdown(
@@ -103,7 +103,7 @@ tab_radar, tab_timeline, tab_sentiment, tab_gen = st.tabs([
 ])
 
 
-# ── Panel A — Cross-Platform Mood Radar ──────────────────────────────────────
+# Panel A — Cross-Platform Mood Radar
 
 with tab_radar:
     st.subheader("Mood Distribution by Chart Source (Latest Week)")
@@ -151,7 +151,7 @@ with tab_radar:
         st.error(f"Could not load mood radar: {e}")
 
 
-# ── Panel B — Mood Timeline by Source ────────────────────────────────────────
+# Panel B — Mood Timeline by Source
 
 with tab_timeline:
     st.subheader("Dominant Mood Trend by Chart Source")
@@ -192,7 +192,7 @@ with tab_timeline:
         st.error(f"Could not load mood timeline: {e}")
 
 
-# ── Panel C — News Sentiment by Topic ────────────────────────────────────────
+# Panel C — News Sentiment by Topic
 
 with tab_sentiment:
     st.subheader("News Sentiment by Topic Over Time")
@@ -261,7 +261,7 @@ with tab_sentiment:
         st.error(f"Could not load sentiment data: {e}")
 
 
-# ── Panel D — MusicGen Generation Log ────────────────────────────────────────
+# Panel D — MusicGen Generation Log
 
 with tab_gen:
     st.subheader("AI-Generated Music Log")

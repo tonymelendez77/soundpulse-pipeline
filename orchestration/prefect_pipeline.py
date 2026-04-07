@@ -18,12 +18,12 @@ from pathlib import Path
 
 from prefect import flow, task, get_run_logger
 
-# ── Repo root (one level up from this file) ──────────────────────────────────
+# Repo root (one level up from this file)
 REPO_ROOT = Path(__file__).parent.parent
 VENV_PYTHON = sys.executable   # uses whichever Python runs Prefect (venv)
 
 
-# ── Helper: run a Python module / script ────────────────────────────────────
+# Helper: run a Python module / script
 def _run(script_path: str, label: str) -> None:
     logger = get_run_logger()
     abs_path = REPO_ROOT / script_path
@@ -215,7 +215,7 @@ def soundpulse_daily():
         tasks_ok += 1
 
     try:
-        # ── Layer 1: Ingestion (parallel sources) ─────────────────────────────
+        # Layer 1: Ingestion (parallel sources)
         news_f      = ingest_news.submit()
         reddit_f    = ingest_reddit.submit()
         youtube_f   = ingest_youtube.submit()
@@ -229,27 +229,27 @@ def soundpulse_daily():
                      (billboard_f,"M5-billboard"),(librosa_f,"M6-librosa")]:
             f.result(); _done(n)
 
-        # ── Layer 2: dbt ──────────────────────────────────────────────────────
+        # Layer 2: dbt
         run_dbt.submit().result(); _done("M7-dbt")
 
-        # ── Layer 3: Emotion NLP ──────────────────────────────────────────────
+        # Layer 3: Emotion NLP
         run_emotion_nlp.submit().result(); _done("M9-emotion")
 
-        # ── Layer 4: Clustering → then Correlation (sequential: M11 reads M10 output) ──
+        # Layer 4: Clustering → then Correlation (sequential: M11 reads M10 output)
         run_clustering.submit().result();   _done("M10-kmeans")
         run_correlation.submit().result();  _done("M11-correlation")
 
-        # ── Layer 5: ML Prediction ────────────────────────────────────────────
+        # Layer 5: ML Prediction
         run_ml_predictions.submit().result(); _done("M12-xgboost")
 
-        # ── Layer 6: dbt second pass ──────────────────────────────────────────
+        # Layer 6: dbt second pass
         run_dbt_post_ml.submit().result(); _done("M12b-dbt-ml")
 
-        # ── Layer 7: GenAI ────────────────────────────────────────────────────
+        # Layer 7: GenAI
         run_pinecone.submit().result(); _done("M13a-pinecone")
         run_musicgen.submit().result(); _done("M13b-musicgen")
 
-        # ── Layer 8: Export ───────────────────────────────────────────────────
+        # Layer 8: Export
         run_export.submit().result(); _done("M14-export")
 
         status = "success"
@@ -292,8 +292,8 @@ def soundpulse_daily():
     logger.info(f"Pipeline {status} — {duration}s  ({tasks_ok}/{tasks_total} tasks)")
 
 
-# ────────────────────────────────────────────────────────────────────────────
+# 
 # Entry point — allows running ad-hoc: python orchestration/prefect_pipeline.py
-# ────────────────────────────────────────────────────────────────────────────
+# 
 if __name__ == "__main__":
     soundpulse_daily()

@@ -40,3 +40,4 @@ soundpulse_dbt/target/
 # OS
 .DS_Store
 Thumbs.db
+.claude/

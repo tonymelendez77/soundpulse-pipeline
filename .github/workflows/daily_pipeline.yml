@@ -32,37 +32,37 @@ jobs:
       PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
 
     steps:
-      # ── 0. Checkout ──────────────────────────────────────────────────────────
+      # 0. Checkout
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
 
-      # ── 1. Python 3.11 ───────────────────────────────────────────────────────
+      # 1. Python 3.11
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      # ── 2. GCP credentials ───────────────────────────────────────────────────
+      # 2. GCP credentials
       - name: Write GCP credentials
         run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > /tmp/gcp-key.json
 
-      # ── 3. System deps (ffmpeg for librosa/pydub audio processing) ──────────
+      # 3. System deps (ffmpeg for librosa/pydub audio processing)
       - name: Install system dependencies
         run: sudo apt-get install -y ffmpeg
 
-      # ── 4a. Install PyTorch CPU-only first (avoids downloading 2GB GPU build) ─
+      # -- 4a. Install PyTorch CPU-only first (avoids downloading 2GB GPU build) ─
       - name: Install PyTorch CPU
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      # ── 4b. Install all pipeline deps ────────────────────────────────────────
+      # 4b. Install all pipeline deps
       - name: Install Python dependencies
         run: pip install -r requirements_pipeline.txt
 
-      # ── 4. dbt profile ───────────────────────────────────────────────────────
+      # 4. dbt profile
       - name: Configure dbt profile
         run: |
           mkdir -p ~/.dbt
@@ -81,19 +81,19 @@ jobs:
                 location: US
           PROFILE
 
-      # ── 5. Authenticate Prefect CLI to Prefect Cloud ─────────────────────────
+      # 5. Authenticate Prefect CLI to Prefect Cloud
       - name: Prefect Cloud login
         run: |
           prefect config set PREFECT_API_URL="${{ secrets.PREFECT_API_URL }}"
           prefect config set PREFECT_API_KEY="${{ secrets.PREFECT_API_KEY }}"
 
-      # ── 6. Run the Prefect flow directly ─────────────────────────────────────
+      # 6. Run the Prefect flow directly
       #    This executes the full pipeline and reports every task state to
       #    Prefect Cloud — visible at app.prefect.cloud in real time
       - name: Run SoundPulse pipeline via Prefect
         run: python orchestration/prefect_pipeline.py
 
-      # ── 7. Commit refreshed docs/data/ → GitHub Pages auto-updates ───────────
+      # 7. Commit refreshed docs/data/ → GitHub Pages auto-updates
       - name: Commit refreshed data to GitHub Pages
         if: always()   # commit even on partial success
         run: |

@@ -97,27 +97,27 @@ Open http://127.0.0.1:4200 in your browser.
 ## Flow structure
 
 ```
-Layer 1  ── Ingestion (parallel)
+Layer 1  -- Ingestion (parallel)
              M1 news / reddit / youtube
              M2 Spotify audio features
              M3 iTunes · M4 Last.fm · M5 Billboard
              M6 Librosa
 
-Layer 2  ── dbt run + test (raw → staging → marts)
+Layer 2  -- dbt run + test (raw → staging → marts)
 
-Layer 3  ── M9 DistilRoBERTa emotion NLP
+Layer 3  -- M9 DistilRoBERTa emotion NLP
 
-Layer 4  ── M10 KMeans clustering  (parallel)
+Layer 4  -- M10 KMeans clustering  (parallel)
              M11 Pearson correlation
 
-Layer 5  ── M12 XGBoost + SHAP predictions
+Layer 5  -- M12 XGBoost + SHAP predictions
 
-Layer 6  ── dbt re-run (picks up ML output tables)
+Layer 6  -- dbt re-run (picks up ML output tables)
 
-Layer 7  ── M13a Pinecone upsert
+Layer 7  -- M13a Pinecone upsert
              M13b MusicGen generation
 
-Layer 8  ── M14 export_static.py → docs/data/
+Layer 8  -- M14 export_static.py → docs/data/
              git add docs/ && git commit && git push
 ```
 

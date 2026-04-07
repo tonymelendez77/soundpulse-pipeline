@@ -66,14 +66,14 @@ def _run(query: str) -> list[dict]:
 ]
 
 
-# ── Health ───────────────────────────────────────────────────────────────────
+# Health
 
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-# ── Correlation ──────────────────────────────────────────────────────────────
+# Correlation
 
 @app.get("/correlation")
 def correlation():
@@ -89,7 +89,7 @@ def correlation():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Timeline ─────────────────────────────────────────────────────────────────
+# Timeline
 
 @app.get("/timeline")
 def timeline():
@@ -111,7 +111,7 @@ def timeline():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── SHAP importance ───────────────────────────────────────────────────────────
+# SHAP importance
 
 @app.get("/shap")
 def shap(mood: Optional[str] = Query(default=None, description="Filter by mood_archetype")):
@@ -129,7 +129,7 @@ def shap(mood: Optional[str] = Query(default=None, description="Filter by mood_a
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Mood weekly ───────────────────────────────────────────────────────────────
+# Mood weekly
 
 @app.get("/mood-weekly")
 def mood_weekly():
@@ -150,7 +150,7 @@ def mood_weekly():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Predictions ───────────────────────────────────────────────────────────────
+# Predictions
 
 @app.get("/predictions")
 def predictions():
@@ -173,7 +173,7 @@ def predictions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── News sentiment ─────────────────────────────────────────────────────────────
+# News sentiment
 
 @app.get("/news-sentiment")
 def news_sentiment(topic: Optional[str] = Query(default=None, description="Filter by topic")):
@@ -196,7 +196,7 @@ def news_sentiment(topic: Optional[str] = Query(default=None, description="Filte
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Generated tracks ──────────────────────────────────────────────────────────
+# Generated tracks
 
 @app.get("/generated-tracks")
 def generated_tracks():

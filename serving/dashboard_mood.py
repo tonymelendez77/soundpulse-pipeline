@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# Helpers
 
 @st.cache_data(ttl=300)
 def fetch(endpoint: str, params: dict = None) -> list[dict]:
@@ -38,7 +38,7 @@ def df(endpoint: str, params: dict = None) -> pd.DataFrame:
     return pd.DataFrame(fetch(endpoint, params))
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# Sidebar
 
 with st.sidebar:
     st.title("🎵 SoundPulse")
@@ -66,7 +66,7 @@ with st.sidebar:
     )
 
 
-# ── Page header ───────────────────────────────────────────────────────────────
+# Page header
 
 st.title("🧠 Mood Intelligence")
 st.markdown(
@@ -83,7 +83,7 @@ tab_corr, tab_timeline, tab_shap, tab_pred = st.tabs([
 ])
 
 
-# ── Panel A — Correlation Heatmap ─────────────────────────────────────────────
+# Panel A — Correlation Heatmap
 
 with tab_corr:
     st.subheader("News Emotion → Music Mood Correlation (Pearson r)")
@@ -147,7 +147,7 @@ with tab_corr:
         st.error(f"Could not load correlation data: {e}")
 
 
-# ── Panel B — Timeline ────────────────────────────────────────────────────────
+# Panel B — Timeline
 
 with tab_timeline:
     st.subheader("World Sentiment vs. Music Mood Over Time")
@@ -214,7 +214,7 @@ with tab_timeline:
         st.error(f"Could not load timeline data: {e}")
 
 
-# ── Panel C — SHAP ────────────────────────────────────────────────────────────
+# Panel C — SHAP
 
 with tab_shap:
     st.subheader("What Drives the Mood Prediction? (SHAP Values)")
@@ -257,7 +257,7 @@ with tab_shap:
         st.error(f"Could not load SHAP data: {e}")
 
 
-# ── Panel D — Prediction Scorecard ────────────────────────────────────────────
+# Panel D — Prediction Scorecard
 
 with tab_pred:
     st.subheader("XGBoost Prediction History")
