@@ -163,7 +163,7 @@ def run_outcome_validation() -> dict:
     client = bigquery.Client(project=PROJECT)
     ensure_acc_table(client)
 
-    # 1. Find predictions that need validation
+    # Find predictions that need validation
     unvalidated = fetch_unvalidated_predictions(client)
     if not unvalidated:
         logger.info("All predictions already validated — nothing to do")
@@ -171,7 +171,7 @@ def run_outcome_validation() -> dict:
         logger.info(f"Rolling 8-week accuracy: {rolling}")
         return {"validated": 0, "rolling": rolling}
 
-    # 2. For each, look up actual mood and update
+    # For each, look up actual mood and update
     validated_rows = []
     for pred in unvalidated:
         week_str     = str(pred["week_start"])
@@ -186,7 +186,7 @@ def run_outcome_validation() -> dict:
         )
         validated_rows.append({**pred, "actual_mood": actual_mood, "correct": correct})
 
-    # 3. Compute rolling accuracy after updates
+    # Compute rolling accuracy after updates
     rolling = compute_rolling_accuracy(client)
     logger.info(
         f"Rolling 8-week accuracy: {rolling['accuracy']:.1%} "
@@ -194,10 +194,10 @@ def run_outcome_validation() -> dict:
         if rolling["accuracy"] is not None else "Rolling accuracy: insufficient data"
     )
 
-    # 4. Persist to accuracy table
+    # Persist to accuracy table
     write_accuracy_rows(client, validated_rows, rolling)
 
-    logger.info(f"─── OUTCOME VALIDATION COMPLETE ───")
+    logger.info(f"OUTCOME VALIDATION COMPLETE ")
     logger.info(f"  Validated: {len(validated_rows)}")
     logger.info(f"  Rolling 8w accuracy: {rolling}")
     return {"validated": len(validated_rows), "rolling": rolling}

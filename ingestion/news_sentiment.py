@@ -21,7 +21,7 @@ from google.cloud import bigquery
 from loguru import logger
 from transformers import pipeline
 
-# ── Config ─────────────────────────────────────────────────────────────────────
+# Config
 PROJECT   = "soundpulse-production"
 DATASET   = "music_analytics"
 SRC_TABLE = f"{PROJECT}.{DATASET}.news_historical"
@@ -68,7 +68,7 @@ AGG_SCHEMA = [
 EMOTION_LABELS = ["fear", "anger", "joy", "sadness", "surprise", "disgust", "neutral"]
 
 
-# ── BQ helpers ─────────────────────────────────────────────────────────────────
+# BQ helpers
 
 def ensure_table(client: bigquery.Client, table_id: str, schema: list, drop_first: bool = True):
     if drop_first:
@@ -91,7 +91,7 @@ def streaming_insert(client: bigquery.Client, table_id: str, rows: list[dict]):
             logger.debug(f"Inserted rows {i}–{i + len(chunk) - 1}")
 
 
-# ── Inference ──────────────────────────────────────────────────────────────────
+# Inference
 
 def load_model():
     logger.info("Loading DistilRoBERTa emotion model …")
@@ -128,7 +128,7 @@ def run_inference(clf, texts: list[str]) -> list[dict]:
     return [scores_from_output(r) for r in results]
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# Main
 
 def get_processed_dates(client: bigquery.Client) -> set:
     """Return the set of dates already scored in news_sentiment."""
@@ -202,7 +202,7 @@ def main():
     client = bigquery.Client(project=PROJECT)
     now_ts = datetime.now(timezone.utc).isoformat()
 
-    # 1. Find dates not yet scored
+    # Find dates not yet scored
     processed = get_processed_dates(client)
     logger.info(f"Already scored dates: {len(processed)}")
 
@@ -211,7 +211,7 @@ def main():
         date_list = ", ".join(f"'{d}'" for d in sorted(processed))
         exclusion = f"AND CAST(date AS STRING) NOT IN ({date_list})"
 
-    # 2. Load only new articles from news_historical
+    # Load only new articles from news_historical
     logger.info("Reading news_historical …")
     query = f"""
         SELECT date, topic, title, description
@@ -233,11 +233,11 @@ def main():
         _write_weekly_aggregates(client, df_all, now_ts)
         return
 
-    # 3. Prepare input texts
+    # Prepare input texts
     df["_text"] = df.apply(build_text, axis=1)
     texts = df["_text"].tolist()
 
-    # 4. Load model + run inference in batches
+    # Load model + run inference in batches
     clf = load_model()
     all_scores: list[dict] = []
     n_batches = math.ceil(len(texts) / BATCH_SIZE)
@@ -252,7 +252,7 @@ def main():
 
     logger.info("Inference complete.")
 
-    # 5. Build output rows
+    # Build output rows
     score_df = pd.DataFrame(all_scores)
     df = df.reset_index(drop=True)
     df = pd.concat([df, score_df], axis=1)
@@ -279,13 +279,13 @@ def main():
         for _, row in df.iterrows()
     ]
 
-    # 6. Append new rows to news_sentiment (do NOT drop the table)
+    # Append new rows to news_sentiment (do NOT drop the table)
     ensure_table(client, DST_TABLE, DST_SCHEMA, drop_first=False)
     logger.info(f"Appending {len(rows):,} rows to {DST_TABLE} …")
     streaming_insert(client, DST_TABLE, rows)
     logger.info("news_sentiment appended.")
 
-    # 7. Recompute weekly aggregates from the full news_sentiment table
+    # Recompute weekly aggregates from the full news_sentiment table
     logger.info("Reading full news_sentiment for weekly aggregation …")
     df_all = client.query(
         f"SELECT date, topic, title, fear_score, anger_score, joy_score, "
@@ -294,8 +294,8 @@ def main():
     ).to_dataframe()
     _write_weekly_aggregates(client, df_all, now_ts)
 
-    # 8. Summary
-    logger.info("─── LAYER 1 COMPLETE ───")
+    # Summary
+    logger.info("LAYER 1 COMPLETE ")
     logger.info(f"  New articles classified : {len(rows):,}")
     emotion_counts = df["emotion"].value_counts().to_dict()
     logger.info(f"  Emotion distribution    : {emotion_counts}")

@@ -1,27 +1,6 @@
 """
-SoundPulse — Module 14
-Static export: queries BigQuery and writes JSON snapshots to docs/data/
-Downloads latest generated WAVs from GCS to docs/audio/ (today/weekly/monthly)
-Maintains a timestamped history in docs/audio/history/ (free on GitHub Pages)
-
-Run (from repo root, venv active):
-    python serving/export_static.py
-
-Output:
-    docs/data/correlation.json
-    docs/data/timeline.json
-    docs/data/shap.json
-    docs/data/predictions.json
-    docs/data/mood_weekly.json
-    docs/data/news_sentiment.json
-    docs/data/generated_tracks.json    (latest per period)
-    docs/data/song_history.json        (full archive index)
-    docs/data/meta.json
-    docs/audio/today.wav               (today's prediction)
-    docs/audio/weekly.wav              (this week's prediction)
-    docs/audio/monthly.wav             (this month's prediction)
-    docs/audio/track.wav               (backwards-compat copy of today.wav)
-    docs/audio/history/YYYY-MM-DD_period.wav  (one per period per run, if new)
+SoundPulse static export (Module 14).
+Queries BigQuery, writes JSON snapshots to docs/data/, and syncs WAVs from GCS.
 """
 
 import json
@@ -49,14 +28,14 @@ def _make_clients():
     return bigquery.Client(project=PROJECT), storage.Client(project=PROJECT)
 
 
-DATASET    = f"{PROJECT}.dbt_transformed"
-RAW        = f"{PROJECT}.music_analytics"    # raw BQ tables (pre-dbt)
+DATASET = f"{PROJECT}.dbt_transformed"
+RAW = f"{PROJECT}.music_analytics"
 GCS_BUCKET = "soundpulse-prod-raw-lake"
 
-DOCS      = Path(__file__).parent.parent / "docs"
-DATA_DIR  = DOCS / "data"
+DOCS = Path(__file__).parent.parent / "docs"
+DATA_DIR = DOCS / "data"
 AUDIO_DIR = DOCS / "audio"
-HIST_DIR  = AUDIO_DIR / "history"
+HIST_DIR = AUDIO_DIR / "history"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,13 +44,11 @@ HIST_DIR.mkdir(parents=True, exist_ok=True)
 REGIONS = ["north_america", "latin_america", "europe", "global"]
 
 WAV_MAP = {
-    "today":   "today.wav",
-    "weekly":  "weekly.wav",
+    "today": "today.wav",
+    "weekly": "weekly.wav",
     "monthly": "monthly.wav",
 }
 
-
-# ── Generic helpers ───────────────────────────────────────────────────────────────
 
 def bq_to_json(client: bigquery.Client, query: str) -> list[dict]:
     df = client.query(query).to_dataframe()
@@ -90,10 +67,7 @@ def write_json(path: Path, data) -> None:
     logger.info(f"  → {path.relative_to(DOCS.parent)} ({len(data)} rows)")
 
 
-# ── Per-table exports (unchanged from original) ──────────────────────────────────
-
 def export_correlation(client):
-    # Query raw table (has region) instead of dbt view (which drops region)
     data = bq_to_json(client, f"""
         SELECT region, emotion, mood_archetype,
                CAST(pearson_r AS FLOAT64) AS pearson_r,
@@ -131,11 +105,10 @@ def export_timeline(client):
 
 
 def export_shap(client):
-    # Query raw table (has region) instead of dbt view (which drops region)
     data = bq_to_json(client, f"""
         SELECT region, feature, mood_archetype,
                CAST(mean_shap_value AS FLOAT64) AS mean_shap_value,
-               CAST(mean_abs_shap   AS FLOAT64) AS mean_abs_shap,
+               CAST(mean_abs_shap AS FLOAT64) AS mean_abs_shap,
                rank AS importance_rank
         FROM `{RAW}.shap_importance`
         ORDER BY region, mood_archetype, rank ASC
@@ -202,30 +175,26 @@ def export_news_sentiment(client):
     write_json(DATA_DIR / "news_sentiment.json", data)
 
 
-# ── Mood Regional export (new) ────────────────────────────────────────────────────
-
 def export_mood_regional(client: bigquery.Client) -> None:
-    """Export audio_mood_regional → mood_regional.json for the region-tab charts."""
+    """Export audio_mood_regional -> mood_regional.json for the region-tab charts."""
     data = bq_to_json(client, f"""
         SELECT
             CAST(week_start AS STRING) AS week_start,
             region, dominant_mood, track_count,
-            CAST(euphoric_pct    AS FLOAT64) AS euphoric_pct,
+            CAST(euphoric_pct AS FLOAT64) AS euphoric_pct,
             CAST(melancholic_pct AS FLOAT64) AS melancholic_pct,
-            CAST(aggressive_pct  AS FLOAT64) AS aggressive_pct,
-            CAST(peaceful_pct    AS FLOAT64) AS peaceful_pct,
-            CAST(groovy_pct      AS FLOAT64) AS groovy_pct,
-            CAST(avg_valence      AS FLOAT64) AS avg_valence,
-            CAST(avg_energy       AS FLOAT64) AS avg_energy,
+            CAST(aggressive_pct AS FLOAT64) AS aggressive_pct,
+            CAST(peaceful_pct AS FLOAT64) AS peaceful_pct,
+            CAST(groovy_pct AS FLOAT64) AS groovy_pct,
+            CAST(avg_valence AS FLOAT64) AS avg_valence,
+            CAST(avg_energy AS FLOAT64) AS avg_energy,
             CAST(avg_danceability AS FLOAT64) AS avg_danceability,
-            CAST(avg_tempo        AS FLOAT64) AS avg_tempo
+            CAST(avg_tempo AS FLOAT64) AS avg_tempo
         FROM `{RAW}.audio_mood_regional`
         ORDER BY week_start ASC, region ASC
     """)
     write_json(DATA_DIR / "mood_regional.json", data)
 
-
-# ── Generated tracks export (regional) ───────────────────────────────────────────
 
 def export_generated_tracks(client: bigquery.Client) -> dict:
     """Return latest row per (region, period). Writes generated_tracks.json.
@@ -258,12 +227,9 @@ def export_generated_tracks(client: bigquery.Client) -> dict:
     return by_region_period
 
 
-# ── WAV download ─────────────────────────────────────────────────────────────────
-
 def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
     """Download WAVs into docs/audio/{region}/{period}.wav.
-    Also maintains docs/audio/{period}.wav as a copy of the global region
-    for backward compatibility with the existing site.
+    Keeps docs/audio/{period}.wav pointing at the global region for the site.
     """
     bucket = gcs_client.bucket(GCS_BUCKET)
 
@@ -293,7 +259,7 @@ def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
             except Exception as e:
                 logger.error(f"  [{region}/{period}] WAV download failed: {e}")
 
-    # Backwards-compat: docs/audio/{period}.wav = global region's copy
+    # docs/audio/{period}.wav = global region's copy
     global_periods = by_region_period.get("global", {})
     for period, dest_name in WAV_MAP.items():
         src = AUDIO_DIR / "global" / dest_name
@@ -302,7 +268,7 @@ def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
             shutil.copy(src, dest)
             logger.info(f"  → docs/audio/{dest_name} (copy of global/{dest_name})")
         elif not global_periods:
-            # no global region at all — use first available region
+            # no global region — use first available region
             for rgn in REGIONS:
                 alt = AUDIO_DIR / rgn / dest_name
                 if alt.exists():
@@ -310,7 +276,7 @@ def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
                     logger.info(f"  → docs/audio/{dest_name} (copy of {rgn}/{dest_name})")
                     break
 
-    # track.wav = today.wav (oldest compat)
+    # track.wav legacy copy
     today_wav = AUDIO_DIR / "today.wav"
     track_wav = AUDIO_DIR / "track.wav"
     if today_wav.exists():
@@ -318,40 +284,33 @@ def download_wavs(by_region_period: dict, gcs_client: storage.Client) -> None:
         logger.info(f"  → docs/audio/track.wav (copy of today.wav)")
 
 
-# ── History management ────────────────────────────────────────────────────────────
-
 def update_history(by_region_period: dict) -> None:
-    """Copy each region+period's live WAV into docs/audio/history/ with a datestamp.
-    Filename: {date}_{region}_{period}.wav — one file per run per region+period.
-    """
-    today     = _date.today()
-    monday    = today - timedelta(days=today.weekday())
+    """Copy each region+period WAV into docs/audio/history/ with a datestamp."""
+    today = _date.today()
+    monday = today - timedelta(days=today.weekday())
     month_str = today.strftime("%Y-%m")
 
     stamp_map = {
-        "today":   today.isoformat(),
-        "weekly":  monday.isoformat(),
+        "today": today.isoformat(),
+        "weekly": monday.isoformat(),
         "monthly": f"{month_str}-01",
     }
 
     for region in REGIONS:
         region_dir = AUDIO_DIR / region
         for period, date_str in stamp_map.items():
-            src  = region_dir / WAV_MAP.get(period, f"{period}.wav")
+            src = region_dir / WAV_MAP.get(period, f"{period}.wav")
             fname = f"{date_str}_{region}_{period}.wav"
-            dest  = HIST_DIR / fname
+            dest = HIST_DIR / fname
             if src.exists() and not dest.exists():
                 shutil.copy(src, dest)
                 logger.info(f"  → docs/audio/history/{fname} (archived)")
             elif dest.exists():
                 logger.info(f"  history/{fname} already exists — skipping")
-            # silently skip if src doesn't exist (region had no data)
 
 
 def export_song_history(client: bigquery.Client) -> None:
-    """Build song_history.json index from docs/audio/history/ + BQ metadata.
-    History filenames are now: {date}_{region}_{period}.wav
-    """
+    """Build the song_history.json index from history WAVs and BQ metadata."""
     try:
         all_tracks = bq_to_json(client, f"""
             SELECT
@@ -368,17 +327,14 @@ def export_song_history(client: bigquery.Client) -> None:
         logger.warning(f"Could not load generated_tracks for history: {e}")
         all_tracks = []
 
-    # Index history WAV files — filename: {date}_{region}_{period}.wav
     history = []
     for wav in sorted(HIST_DIR.glob("*.wav"), reverse=True):
         parts = wav.stem.split("_")
-        # Expect at least: date, region_part1 (possibly multi-word), period
         if len(parts) < 3:
             continue
-        # Last part is period, first part is date, middle parts form region
-        period   = parts[-1]
+        period = parts[-1]
         date_str = parts[0]
-        region   = "_".join(parts[1:-1])
+        region = "_".join(parts[1:-1])
 
         meta = next(
             (t for t in all_tracks
@@ -386,40 +342,37 @@ def export_song_history(client: bigquery.Client) -> None:
             {}
         )
         label_map = {
-            "today":   date_str,
-            "weekly":  f"Week of {date_str}",
+            "today": date_str,
+            "weekly": f"Week of {date_str}",
             "monthly": date_str[:7],
         }
         region_label = {
             "north_america": "N. America",
             "latin_america": "Latin America",
-            "europe":        "Europe",
-            "global":        "Global",
+            "europe": "Europe",
+            "global": "Global",
         }.get(region, region.replace("_", " ").title())
         history.append({
-            "period":           period,
-            "region":           region,
-            "region_label":     region_label,
-            "date":             date_str,
-            "label":            f"{label_map.get(period, date_str)} — {region_label}",
-            "mood_archetype":   meta.get("mood_archetype") or "",
-            "prompt_text":      meta.get("prompt_text") or "",
+            "period": period,
+            "region": region,
+            "region_label": region_label,
+            "date": date_str,
+            "label": f"{label_map.get(period, date_str)} — {region_label}",
+            "mood_archetype": meta.get("mood_archetype") or "",
+            "prompt_text": meta.get("prompt_text") or "",
             "duration_seconds": meta.get("duration_seconds") or 0,
-            "audio_path":       f"audio/history/{wav.name}",
+            "audio_path": f"audio/history/{wav.name}",
         })
 
     write_json(DATA_DIR / "song_history.json", history)
 
 
-# ── Prediction accuracy (feedback loop) ──────────────────────────────────────────
-
 def export_prediction_accuracy(client: bigquery.Client) -> None:
-    """Export rolling prediction accuracy from prediction_accuracy table.
-    Falls back to computing it live from ml_predictions if the table is empty."""
+    """Export rolling prediction accuracy, falling back to ml_predictions if needed."""
     try:
         data = bq_to_json(client, f"""
             SELECT
-                CAST(week_start AS STRING)  AS week_start,
+                CAST(week_start AS STRING) AS week_start,
                 period,
                 predicted_mood,
                 actual_mood,
@@ -436,10 +389,9 @@ def export_prediction_accuracy(client: bigquery.Client) -> None:
         data = []
 
     if not data:
-        # Fallback: compute from ml_predictions directly
         data = bq_to_json(client, f"""
             SELECT
-                CAST(week_start AS STRING)  AS week_start,
+                CAST(week_start AS STRING) AS week_start,
                 period,
                 predicted_mood,
                 actual_mood,
@@ -447,7 +399,7 @@ def export_prediction_accuracy(client: bigquery.Client) -> None:
                 confidence,
                 NULL AS rolling_8w_acc,
                 NULL AS rolling_8w_n,
-                CAST(ingested_at AS STRING)  AS validated_at
+                CAST(ingested_at AS STRING) AS validated_at
             FROM `{PROJECT}.music_analytics.ml_predictions`
             WHERE period IS NOT NULL
               AND correct IS NOT NULL
@@ -458,8 +410,6 @@ def export_prediction_accuracy(client: bigquery.Client) -> None:
     write_json(DATA_DIR / "prediction_accuracy.json", data)
 
 
-# ── Meta ─────────────────────────────────────────────────────────────────────────
-
 def write_meta(exports: dict) -> None:
     meta = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
@@ -469,8 +419,6 @@ def write_meta(exports: dict) -> None:
         json.dump(meta, f, indent=2)
     logger.info("  → docs/data/meta.json")
 
-
-# ── Main ─────────────────────────────────────────────────────────────────────────
 
 def main():
     logger.info("SoundPulse — exporting static data for GitHub Pages")
@@ -512,7 +460,7 @@ def main():
     with open(DATA_DIR / "news_sentiment.json") as f:
         counts["news_sentiment"] = len(json.load(f))
 
-    logger.info("Exporting prediction accuracy (rolling feedback loop)...")
+    logger.info("Exporting prediction accuracy...")
     export_prediction_accuracy(bq_client)
     with open(DATA_DIR / "prediction_accuracy.json") as f:
         counts["prediction_accuracy"] = len(json.load(f))
@@ -534,7 +482,7 @@ def main():
 
     write_meta(counts)
 
-    logger.info("─── EXPORT COMPLETE ───")
+    logger.info("EXPORT COMPLETE")
     for k, v in counts.items():
         logger.info(f"  {k}: {v} rows")
     logger.info("  Site ready at: docs/index.html")

@@ -26,7 +26,7 @@ from sklearn.preprocessing import StandardScaler
 
 import os
 
-# ── Config ──────────────────────────────────────────────────────────────────────
+# Config
 PROJECT        = "soundpulse-production"
 DATASET        = "music_analytics"
 PINECONE_INDEX = "soundpulse-tracks"
@@ -44,7 +44,7 @@ FEATURE_COLS = [
 ]
 
 
-# ── BQ queries ──────────────────────────────────────────────────────────────────
+# BQ queries
 
 def fetch_historical_tracks(client: bigquery.Client) -> pd.DataFrame:
     """
@@ -95,7 +95,7 @@ def fetch_trending_tracks(client: bigquery.Client) -> pd.DataFrame:
     return df
 
 
-# ── Scaler ──────────────────────────────────────────────────────────────────────
+# Scaler
 
 def fit_scaler(X: np.ndarray) -> tuple[np.ndarray, dict]:
     scaler = StandardScaler()
@@ -114,7 +114,7 @@ def save_scaler_params(params: dict, path: Path) -> None:
     logger.info(f"Scaler params saved to {path}")
 
 
-# ── Centroid assignment ─────────────────────────────────────────────────────────
+# Centroid assignment
 
 def assign_mood_by_centroid(
     X_scaled: np.ndarray,
@@ -136,7 +136,7 @@ def assign_mood_by_centroid(
     return [archetype_names[i] for i in best_idx]
 
 
-# ── Pinecone ────────────────────────────────────────────────────────────────────
+# Pinecone
 
 def track_id(title: str, artist: str) -> str:
     """MD5 hash of 'lower(title)|lower(artist)' — matches dbt stg_trending_historical."""
@@ -171,7 +171,7 @@ def upsert_to_pinecone(index, vectors: list[dict], batch_size: int = 100) -> Non
     logger.info(f"Upserted {total:,} vectors to Pinecone")
 
 
-# ── Main ────────────────────────────────────────────────────────────────────────
+# Main
 
 def main():
     load_dotenv()
@@ -181,23 +181,23 @@ def main():
 
     client = bigquery.Client(project=PROJECT)
 
-    # 1. Fetch data
+    # Fetch data
     df_hist  = fetch_historical_tracks(client)
     df_trend = fetch_trending_tracks(client)
 
-    # 2. Combine — historical first so trending overwrites on same track ID
+    # Combine — historical first so trending overwrites on same track ID
     df_all = pd.concat([df_hist, df_trend], ignore_index=True)
     before = len(df_all)
     df_all = df_all.dropna(subset=FEATURE_COLS)
     if len(df_all) < before:
         logger.warning(f"Dropped {before - len(df_all)} rows with null features")
 
-    # 3. Fit scaler on combined set
+    # Fit scaler on combined set
     X = df_all[FEATURE_COLS].values.astype(float)
     X_scaled, scaler_params = fit_scaler(X)
     save_scaler_params(scaler_params, SCALER_PATH)
 
-    # 4. Compute centroids from historical tracks (known archetypes)
+    # Compute centroids from historical tracks (known archetypes)
     hist_mask = df_all.index < len(df_hist)
     archetypes = df_all.loc[hist_mask, "mood_archetype"].dropna().unique()
     centroids: dict[str, np.ndarray] = {}
@@ -206,23 +206,23 @@ def main():
         centroids[arch] = X_scaled[mask].mean(axis=0)
     logger.info(f"Computed centroids for archetypes: {list(centroids.keys())}")
 
-    # 5. Assign mood to trending_tracks rows (no archetype)
+    # Assign mood to trending_tracks rows (no archetype)
     trend_mask = ~hist_mask
     if trend_mask.any() and centroids:
         assigned = assign_mood_by_centroid(X_scaled[trend_mask], centroids)
         df_all.loc[trend_mask, "mood_archetype"] = assigned
         logger.info(f"Assigned archetypes to {trend_mask.sum()} trending tracks")
 
-    # 6. Build and upsert vectors
+    # Build and upsert vectors
     vectors = build_pinecone_vectors(df_all, X_scaled)
 
     pc = Pinecone(api_key=api_key)
     index = pc.Index(PINECONE_INDEX)
     upsert_to_pinecone(index, vectors)
 
-    # 7. Summary
+    # Summary
     arch_dist = df_all["mood_archetype"].value_counts().to_dict()
-    logger.info("─── VECTOR INDEX COMPLETE ───")
+    logger.info("VECTOR INDEX COMPLETE ")
     logger.info(f"  Total vectors upserted : {len(vectors):,}")
     logger.info(f"  Archetype distribution : {arch_dist}")
     logger.info(f"  Scaler params saved to : {SCALER_PATH}")

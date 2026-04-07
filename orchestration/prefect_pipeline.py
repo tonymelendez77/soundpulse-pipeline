@@ -64,11 +64,8 @@ def _run_dbt(command: str, label: str) -> None:
     logger.info(f"[{label}] ✓ Done")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 1 — Ingestion  (Modules 1–6)
 # Each source is independent — they run in the same Prefect task sequentially.
 # (Split into separate @task if you want per-step retry / observability.)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M1 · News Ingestion", retries=2, retry_delay_seconds=60)
 def ingest_news():
@@ -102,26 +99,17 @@ def ingest_billboard():
 def ingest_librosa():
     _run("ingestion/audio_features_librosa.py", "M6-librosa")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 2 — dbt Transformations  (Modules 7–8)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M7–8 · dbt run + test", retries=1, retry_delay_seconds=120)
 def run_dbt():
     _run_dbt("run", "M7-dbt-run")
     _run_dbt("test", "M8-dbt-test")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 3 — Emotion Classification  (Module 9)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M9 · DistilRoBERTa Emotion NLP", retries=1, retry_delay_seconds=180)
 def run_emotion_nlp():
     _run("ingestion/news_sentiment.py", "M9-emotion")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 4 — Clustering + Correlation  (Modules 10–11)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M10 · KMeans Audio Clustering", retries=1, retry_delay_seconds=60)
 def run_clustering():
@@ -131,25 +119,16 @@ def run_clustering():
 def run_correlation():
     _run("ingestion/emotion_music_correlation.py", "M11-correlation")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 5 — ML Prediction  (Module 12)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M12 · XGBoost + SHAP Prediction", retries=1, retry_delay_seconds=120)
 def run_ml_predictions():
     _run("ingestion/ml_predictions.py", "M12-xgboost")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 6 — dbt (second pass — picks up ML output tables)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M12b · dbt re-run for ML tables", retries=1, retry_delay_seconds=120)
 def run_dbt_post_ml():
     _run_dbt("run --select stg_shap_importance stg_ml_predictions fct_mood_prediction_summary", "M12b-dbt-ml")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 7 — GenAI  (Module 13)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M13a · Pinecone Vector Upsert", retries=2, retry_delay_seconds=60)
 def run_pinecone():
@@ -159,9 +138,6 @@ def run_pinecone():
 def run_musicgen():
     _run("ingestion/music_generation.py", "M13b-musicgen")
 
-# ════════════════════════════════════════════════════════════════════════════
-# LAYER 8 — Static export  (Module 14)
-# ════════════════════════════════════════════════════════════════════════════
 
 @task(name="M14 · Export static data to docs/", retries=2, retry_delay_seconds=60)
 def run_export():
@@ -195,9 +171,7 @@ def _write_run_log(run_record: dict) -> None:
 # after this Prefect flow exits. No git task needed here.
 
 
-# ════════════════════════════════════════════════════════════════════════════
 # MAIN FLOW
-# ════════════════════════════════════════════════════════════════════════════
 
 MODULE_NAMES = [
     "M1-news", "M1-reddit", "M1-youtube",

@@ -1,16 +1,6 @@
 """
-SoundPulse — Module 13, Layer 2
-MusicGen Audio Generation Pipeline
-
-Reads 3 period-specific XGBoost mood predictions (today / weekly / monthly),
-queries Pinecone for the 10 most sonically similar real tracks per period,
-builds a season-aware blended text prompt, generates 10 seconds of audio with
-MusicGen-small, uploads WAV to GCS, and logs to BigQuery.
-
-Run AFTER ml_predictions.py and vector_index.py (requires ingestion/scaler_params.json).
-
-Install first:
-    pip install "pinecone-client>=3.0,<4.0" soundfile
+SoundPulse Module 13, Layer 2 - MusicGen audio generation pipeline.
+Generates mood-based audio from XGBoost predictions + Pinecone similarity search.
 """
 
 import json
@@ -30,17 +20,16 @@ from loguru import logger
 from pinecone import Pinecone
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
-# ── Config ──────────────────────────────────────────────────────────────────────
-PROJECT        = "soundpulse-production"
-DATASET        = "music_analytics"
-BUCKET_NAME    = "soundpulse-prod-raw-lake"
-GCS_PREFIX     = "generated"
-PRED_TABLE     = f"{PROJECT}.{DATASET}.ml_predictions"
-GEN_TABLE      = f"{PROJECT}.{DATASET}.generated_tracks"
+PROJECT = "soundpulse-production"
+DATASET = "music_analytics"
+BUCKET_NAME = "soundpulse-prod-raw-lake"
+GCS_PREFIX = "generated"
+PRED_TABLE = f"{PROJECT}.{DATASET}.ml_predictions"
+GEN_TABLE = f"{PROJECT}.{DATASET}.generated_tracks"
 PINECONE_INDEX = "soundpulse-tracks"
-SCALER_PATH    = Path(__file__).parent / "scaler_params.json"
+SCALER_PATH = Path(__file__).parent / "scaler_params.json"
 MUSICGEN_MODEL = "facebook/musicgen-small"
-TOP_K          = 10
+TOP_K = 10
 MAX_NEW_TOKENS = 500    # ~10 seconds of audio
 
 FEATURE_COLS = [
@@ -57,35 +46,33 @@ FEATURE_COLS = [
 REGIONS = ["north_america", "latin_america", "europe", "global"]
 
 GEN_SCHEMA = [
-    bigquery.SchemaField("generation_id",        "STRING"),
-    bigquery.SchemaField("week_start",           "DATE"),
-    bigquery.SchemaField("region",               "STRING"),
-    bigquery.SchemaField("period",               "STRING"),   # "today"|"weekly"|"monthly"
-    bigquery.SchemaField("mood_archetype",       "STRING"),
-    bigquery.SchemaField("mood_blend_json",      "STRING"),   # {mood: prob}
-    bigquery.SchemaField("prompt_text",          "STRING"),
-    bigquery.SchemaField("similar_tracks_json",  "STRING"),
-    bigquery.SchemaField("audio_gcs_path",       "STRING"),
-    bigquery.SchemaField("duration_seconds",     "FLOAT64"),
-    bigquery.SchemaField("generated_at",         "TIMESTAMP"),
+    bigquery.SchemaField("generation_id", "STRING"),
+    bigquery.SchemaField("week_start", "DATE"),
+    bigquery.SchemaField("region", "STRING"),
+    bigquery.SchemaField("period", "STRING"),
+    bigquery.SchemaField("mood_archetype", "STRING"),
+    bigquery.SchemaField("mood_blend_json", "STRING"),
+    bigquery.SchemaField("prompt_text", "STRING"),
+    bigquery.SchemaField("similar_tracks_json", "STRING"),
+    bigquery.SchemaField("audio_gcs_path", "STRING"),
+    bigquery.SchemaField("duration_seconds", "FLOAT64"),
+    bigquery.SchemaField("generated_at", "TIMESTAMP"),
 ]
 
-# ── Prompt constants ─────────────────────────────────────────────────────────────
-
 MOOD_PREFIXES = {
-    "euphoric":    "euphoric pop anthem, celebratory and soaring,",
+    "euphoric": "euphoric pop anthem, celebratory and soaring,",
     "melancholic": "melancholic indie ballad, introspective and aching,",
-    "aggressive":  "aggressive rock, intense and visceral,",
-    "peaceful":    "peaceful ambient, meditative and spacious,",
-    "groovy":      "groovy funk, smooth and hypnotic,",
+    "aggressive": "aggressive rock, intense and visceral,",
+    "peaceful": "peaceful ambient, meditative and spacious,",
+    "groovy": "groovy funk, smooth and hypnotic,",
 }
 
 BLEND_HINTS = {
-    "euphoric":    "with uplifting hooks",
+    "euphoric": "with uplifting hooks",
     "melancholic": "tinged with longing",
-    "aggressive":  "with raw intensity",
-    "peaceful":    "with spacious restraint",
-    "groovy":      "with a rhythmic swagger",
+    "aggressive": "with raw intensity",
+    "peaceful": "with spacious restraint",
+    "groovy": "with a rhythmic swagger",
 }
 
 SEASON_TEXTURE = {
@@ -95,8 +82,6 @@ SEASON_TEXTURE = {
     "autumn": "wistful, cinematic, rich",
 }
 
-
-# ── BQ helpers ───────────────────────────────────────────────────────────────────
 
 def ensure_gen_table(client: bigquery.Client) -> None:
     """Create generated_tracks with current schema. If the table exists but is
@@ -149,9 +134,9 @@ def fetch_predictions_by_region_period(client: bigquery.Client) -> dict:
         rgn = str(r["region"])
         prd = str(r["period"])
         result.setdefault(rgn, {})[prd] = {
-            "predicted_mood":  str(r["predicted_mood"]),
-            "confidence":      float(r["confidence"]),
-            "target_date":     str(r["target_date"]),
+            "predicted_mood": str(r["predicted_mood"]),
+            "confidence": float(r["confidence"]),
+            "target_date": str(r["target_date"]),
             "mood_blend_json": str(r["mood_blend_json"] or "{}"),
         }
     logger.info(f"Loaded predictions for regions: {list(result.keys())}")
@@ -163,13 +148,7 @@ def compute_avg_features(
     similar_tracks: list[dict],
     centroid_features: dict,
 ) -> dict:
-    """Average audio features of the top-K similar Pinecone tracks.
-
-    Falls back to centroid_features (the mood archetype's own avg features from BQ)
-    when track names can't be matched in trending_historical. This prevents the
-    contradictory prompt bug where 0.5 defaults produced descriptors that
-    contradicted the predicted mood (e.g. "euphoric" with "melancholic minor key").
-    """
+    """Average audio features of the top-K similar Pinecone tracks, falling back to centroid."""
     titles_artists = [(t["title"], t["artist"]) for t in similar_tracks]
     if not titles_artists:
         return centroid_features
@@ -222,17 +201,17 @@ def log_to_bigquery(
         for t in similar_tracks
     ])
     row = {
-        "generation_id":       generation_id,
-        "week_start":          week_start,
-        "region":              region,
-        "period":              period,
-        "mood_archetype":      mood,
-        "mood_blend_json":     mood_blend_json,
-        "prompt_text":         prompt,
+        "generation_id": generation_id,
+        "week_start": week_start,
+        "region": region,
+        "period": period,
+        "mood_archetype": mood,
+        "mood_blend_json": mood_blend_json,
+        "prompt_text": prompt,
         "similar_tracks_json": similar_json,
-        "audio_gcs_path":      gcs_path,
-        "duration_seconds":    round(duration_s, 2),
-        "generated_at":        now_ts,
+        "audio_gcs_path": gcs_path,
+        "duration_seconds": round(duration_s, 2),
+        "generated_at": now_ts,
     }
     errors = client.insert_rows_json(GEN_TABLE, [row])
     if errors:
@@ -240,8 +219,6 @@ def log_to_bigquery(
     else:
         logger.info(f"Logged [{region}/{period}] generation to BigQuery")
 
-
-# ── Scaler ───────────────────────────────────────────────────────────────────────
 
 def load_scaler_params(path: Path) -> dict:
     if not path.exists():
@@ -256,25 +233,17 @@ def load_scaler_params(path: Path) -> dict:
 
 
 def scale_vector(raw: list[float], params: dict) -> list[float]:
-    mean_  = np.array(params["mean_"])
+    mean_ = np.array(params["mean_"])
     scale_ = np.array(params["scale_"])
     return ((np.array(raw) - mean_) / scale_).tolist()
 
-
-# ── Pinecone ─────────────────────────────────────────────────────────────────────
 
 def get_mood_centroid(
     client: bigquery.Client,
     mood: str,
     scaler_params: dict,
 ) -> tuple[list[float], dict]:
-    """Return (scaled_vector_for_pinecone, raw_feature_dict_for_prompt).
-
-    The raw feature dict is the true centroid of the mood archetype — used as
-    fallback in compute_avg_features() so the prompt always reflects honest
-    mood-archetype audio characteristics even when Pinecone track names can't
-    be matched back to trending_historical by exact string.
-    """
+    """Return (scaled_vector, raw_feature_dict) for the given mood archetype."""
     feature_avgs_sql = ", ".join(f"AVG(h.{c}) AS {c}" for c in FEATURE_COLS)
     query = f"""
         SELECT {feature_avgs_sql}
@@ -339,16 +308,14 @@ def query_pinecone_top_k(
     for m in matches:
         meta = m.get("metadata", {})
         tracks.append({
-            "id":             m["id"],
-            "score":          float(m["score"]),
-            "title":          meta.get("title", ""),
-            "artist":         meta.get("artist", ""),
+            "id": m["id"],
+            "score": float(m["score"]),
+            "title": meta.get("title", ""),
+            "artist": meta.get("artist", ""),
             "mood_archetype": meta.get("mood_archetype", ""),
         })
     return tracks
 
-
-# ── Prompt builder ───────────────────────────────────────────────────────────────
 
 def _season_for_date(d: date) -> str:
     m = d.month
@@ -358,17 +325,13 @@ def _season_for_date(d: date) -> str:
     return "autumn"
 
 
-
-# Russell's Circumplex Model canonical feature values for valence and energy.
-# These override the cluster centroid for the two archetype-defining axes so the
-# prompt never contradicts itself (e.g. "euphoric" with "melancholic minor key").
-# Tempo, danceability, acousticness come from the real centroid / similar tracks.
-_ARCHETYPE_VALENCE_ENERGY = {
-    "euphoric":    (0.80, 0.78),   # high-valence, high-energy
-    "melancholic": (0.22, 0.32),   # low-valence, low-energy
-    "aggressive":  (0.22, 0.82),   # low-valence, high-energy
-    "peaceful":    (0.75, 0.22),   # high-valence, low-energy
-    "groovy":      (0.65, 0.68),   # mid-high both
+# Canonical valence/energy per archetype so prompts stay internally consistent.
+MOOD_VALENCE_ENERGY = {
+    "euphoric": (0.80, 0.78),
+    "melancholic": (0.22, 0.32),
+    "aggressive": (0.22, 0.82),
+    "peaceful": (0.75, 0.22),
+    "groovy": (0.65, 0.68),
 }
 
 
@@ -378,18 +341,12 @@ def build_prompt(
     avg_features: dict,
     target_date: date,
 ) -> str:
-    """Build a rich, season-aware MusicGen prompt.
-
-    Valence and energy are anchored to the Russell's Circumplex archetype definition
-    so the prompt is always internally consistent (e.g. euphoric → uplifting major
-    key, not melancholic minor key). Tempo, danceability, acousticness come from the
-    real cluster centroid / similar tracks for variety.
-    """
+    """Build a season-aware MusicGen prompt from mood prediction and audio features."""
     season = _season_for_date(target_date)
     season_desc = SEASON_TEXTURE.get(season, "")
     prefix = MOOD_PREFIXES.get(primary_mood, f"{primary_mood} music,")
 
-    # Secondary flavour from blend (mood with second-highest probability)
+    # pick secondary flavour from blend
     secondary_flavor = ""
     for mood, prob in sorted(mood_blend.items(), key=lambda x: -x[1]):
         if mood == primary_mood or prob < 0.15:
@@ -397,12 +354,10 @@ def build_prompt(
         secondary_flavor = BLEND_HINTS.get(mood, "")
         break
 
-    # Valence and energy: use archetype canonical values, not raw centroid
-    canon_valence, canon_energy = _ARCHETYPE_VALENCE_ENERGY.get(
+    canon_valence, canon_energy = MOOD_VALENCE_ENERGY.get(
         primary_mood, (0.5, 0.5)
     )
 
-    # Tempo, danceability, acousticness: use real centroid data for variety
     tempo = avg_features.get("tempo", 120)
     if tempo < 90:
         tempo_desc = "slow tempo"
@@ -464,17 +419,15 @@ def build_prompt(
     return ", ".join(p for p in parts if p)
 
 
-# ── MusicGen ──────────────────────────────────────────────────────────────────────
-
 def generate_audio(prompt: str) -> tuple[np.ndarray, int]:
-    logger.info(f"Loading {MUSICGEN_MODEL} …")
+    logger.info(f"Loading {MUSICGEN_MODEL} ...")
     processor = AutoProcessor.from_pretrained(MUSICGEN_MODEL)
     model = MusicgenForConditionalGeneration.from_pretrained(MUSICGEN_MODEL)
     model.eval()
 
     inputs = processor(text=[prompt], padding=True, return_tensors="pt")
 
-    logger.info(f"Generating {MAX_NEW_TOKENS} tokens (~10s) …  prompt: {prompt}")
+    logger.info(f"Generating {MAX_NEW_TOKENS} tokens (~10s) ... prompt: {prompt}")
     with torch.no_grad():
         audio_values = model.generate(
             **inputs,
@@ -489,8 +442,6 @@ def generate_audio(prompt: str) -> tuple[np.ndarray, int]:
     logger.info(f"Generated {duration_s:.1f}s at {sample_rate}Hz")
     return audio_np, sample_rate
 
-
-# ── GCS upload ────────────────────────────────────────────────────────────────────
 
 def upload_wav_to_gcs(
     audio_np: np.ndarray,
@@ -512,14 +463,12 @@ def upload_wav_to_gcs(
         bucket = gcs_client.bucket(BUCKET_NAME)
         blob = bucket.blob(gcs_filename)
         blob.upload_from_filename(tmp_path, content_type="audio/wav")
-        logger.info(f"Uploaded → {gcs_uri}")
+        logger.info(f"Uploaded {gcs_uri}")
     finally:
         os.unlink(tmp_path)
 
     return gcs_uri
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────────
 
 def main():
     load_dotenv()
@@ -530,25 +479,17 @@ def main():
     bq_client = bigquery.Client(project=PROJECT)
     ensure_gen_table(bq_client)
 
-    # 1. Fetch per-region, per-period predictions from ml_predictions
     region_predictions = fetch_predictions_by_region_period(bq_client)
-
-    # 2. Load scaler once
     scaler_params = load_scaler_params(SCALER_PATH)
 
-    # 3. Init Pinecone once
     pc = Pinecone(api_key=api_key)
     index = pc.Index(PINECONE_INDEX)
 
-    # 4. Calendar context
     today = date.today()
-    this_monday    = today - timedelta(days=today.weekday())
+    this_monday = today - timedelta(days=today.weekday())
     week_start_str = str(this_monday)
 
-    # Decide which periods are due today:
-    #   today   — always
-    #   weekly  — on Monday, OR if no song yet for this week (checked per-region below)
-    #   monthly — only on the 1st of the month
+    # today period always runs; monthly only on 1st
     base_periods_due = {"today"}
     if today.day == 1:
         base_periods_due.add("monthly")
@@ -556,14 +497,12 @@ def main():
 
     songs_generated = 0
 
-    # 5. Generate one song per region × period (only when due)
     for region in REGIONS:
         preds = region_predictions.get(region)
         if not preds:
             logger.warning(f"  [{region}] No predictions found — skipping")
             continue
 
-        # Decide periods for this region
         periods_due = set(base_periods_due)
         if today.weekday() == 0 or not weekly_song_exists_this_week(bq_client, week_start_str, region):
             periods_due.add("weekly")
@@ -579,22 +518,22 @@ def main():
                 logger.warning(f"  [{region}/{period_name}] No prediction row — skipping")
                 continue
 
-            mood           = pred["predicted_mood"]
+            mood = pred["predicted_mood"]
             mood_blend_str = pred["mood_blend_json"]
-            target_dt      = date.fromisoformat(pred["target_date"])
+            target_dt = date.fromisoformat(pred["target_date"])
 
             try:
                 mood_blend = json.loads(mood_blend_str)
             except (json.JSONDecodeError, TypeError):
                 mood_blend = {mood: 1.0}
 
-            logger.info(f"── [{region}] {period_name} | mood: {mood} | target: {target_dt} ──")
+            logger.info(f"[{region}] {period_name} | mood: {mood} | target: {target_dt}")
 
             centroid, centroid_features = get_mood_centroid(bq_client, mood, scaler_params)
             similar_tracks = query_pinecone_top_k(index, centroid, mood)
             logger.info(f"  Top {len(similar_tracks)} similar tracks:")
             for t in similar_tracks:
-                logger.info(f"    {t['score']:.3f}  {t['title']} — {t['artist']}")
+                logger.info(f"    {t['score']:.3f}  {t['title']} - {t['artist']}")
 
             avg_features = compute_avg_features(bq_client, similar_tracks, centroid_features)
             prompt = build_prompt(mood, mood_blend, avg_features, target_dt)
@@ -619,10 +558,10 @@ def main():
                 gcs_path=gcs_path,
                 duration_s=duration_s,
             )
-            logger.info(f"  ✓ [{region}/{period_name}]: {mood} | {duration_s:.1f}s | {gcs_path}")
+            logger.info(f"  Done [{region}/{period_name}]: {mood} | {duration_s:.1f}s | {gcs_path}")
             songs_generated += 1
 
-    logger.info(f"─── MODULE 13 COMPLETE — {songs_generated} songs generated ───")
+    logger.info(f"Module 13 complete, {songs_generated} songs generated")
 
 
 if __name__ == "__main__":

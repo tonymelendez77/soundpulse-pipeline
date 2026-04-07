@@ -1,15 +1,6 @@
 """
-SoundPulse — Module 12, Layer 3
-Emotion–Music Correlation Analysis
-
-Input:  music_analytics.news_sentiment_weekly  (Layer 1 output)
-        music_analytics.audio_mood_regional     (Layer 2 output — 4 regions)
-Output: music_analytics.emotion_music_correlation  (per emotion × mood × region)
-        music_analytics.weekly_features            (4 rows/week — one per region)
-
-Answers: which world emotions drive which audio mood archetypes, per region?
-  — Pearson correlation: anxiety_index → euphoric_pct, per region
-  — Weekly joined table for Layer 4 (XGBoost — one model per region)
+Correlates news emotion scores with audio mood distributions per region,
+then writes a joined weekly features table for downstream modeling.
 """
 
 import time
@@ -21,19 +12,18 @@ from google.cloud import bigquery
 from loguru import logger
 from scipy.stats import pearsonr
 
-# ── Config ──────────────────────────────────────────────────────────────────────
-PROJECT          = "soundpulse-production"
-DATASET          = "music_analytics"
-NEWS_AGG         = f"{PROJECT}.{DATASET}.news_sentiment_weekly"
-AUDIO_REGIONAL   = f"{PROJECT}.{DATASET}.audio_mood_regional"   # 4 regions per week
-CORR_TABLE       = f"{PROJECT}.{DATASET}.emotion_music_correlation"
-JOINED_TABLE     = f"{PROJECT}.{DATASET}.weekly_features"        # feed for Layer 4
+PROJECT = "soundpulse-production"
+DATASET = "music_analytics"
+NEWS_AGG = f"{PROJECT}.{DATASET}.news_sentiment_weekly"
+AUDIO_REGIONAL = f"{PROJECT}.{DATASET}.audio_mood_regional"
+CORR_TABLE = f"{PROJECT}.{DATASET}.emotion_music_correlation"
+JOINED_TABLE = f"{PROJECT}.{DATASET}.weekly_features"
 
 REGIONS = ["north_america", "latin_america", "europe", "global"]
 
-EMOTION_COLS  = ["avg_fear", "avg_anger", "avg_joy", "avg_sadness",
-                 "avg_surprise", "avg_disgust", "avg_neutral",
-                 "anxiety_index", "tension_index", "positivity_index"]
+EMOTION_COLS = ["avg_fear", "avg_anger", "avg_joy", "avg_sadness",
+                "avg_surprise", "avg_disgust", "avg_neutral",
+                "anxiety_index", "tension_index", "positivity_index"]
 
 MOOD_PCT_COLS = ["euphoric_pct", "melancholic_pct", "aggressive_pct",
                  "peaceful_pct", "groovy_pct"]
@@ -41,48 +31,44 @@ MOOD_PCT_COLS = ["euphoric_pct", "melancholic_pct", "aggressive_pct",
 AUDIO_FEATURE_COLS = ["avg_valence", "avg_energy", "avg_danceability", "avg_tempo"]
 
 CORR_SCHEMA = [
-    bigquery.SchemaField("region",           "STRING"),
-    bigquery.SchemaField("emotion",          "STRING"),
-    bigquery.SchemaField("mood_archetype",   "STRING"),
-    bigquery.SchemaField("pearson_r",        "FLOAT64"),
-    bigquery.SchemaField("p_value",          "FLOAT64"),
-    bigquery.SchemaField("significant",      "BOOLEAN"),   # p < 0.05
-    bigquery.SchemaField("direction",        "STRING"),    # positive / negative
-    bigquery.SchemaField("weeks_compared",   "INTEGER"),
-    bigquery.SchemaField("ingested_at",      "TIMESTAMP"),
+    bigquery.SchemaField("region", "STRING"),
+    bigquery.SchemaField("emotion", "STRING"),
+    bigquery.SchemaField("mood_archetype", "STRING"),
+    bigquery.SchemaField("pearson_r", "FLOAT64"),
+    bigquery.SchemaField("p_value", "FLOAT64"),
+    bigquery.SchemaField("significant", "BOOLEAN"),
+    bigquery.SchemaField("direction", "STRING"),
+    bigquery.SchemaField("weeks_compared", "INTEGER"),
+    bigquery.SchemaField("ingested_at", "TIMESTAMP"),
 ]
 
 JOINED_SCHEMA = [
-    bigquery.SchemaField("week_start",           "DATE"),
-    bigquery.SchemaField("region",               "STRING"),
-    # news emotion scores (averaged across all topics — global signal for all regions)
-    bigquery.SchemaField("avg_fear",             "FLOAT64"),
-    bigquery.SchemaField("avg_anger",            "FLOAT64"),
-    bigquery.SchemaField("avg_joy",              "FLOAT64"),
-    bigquery.SchemaField("avg_sadness",          "FLOAT64"),
-    bigquery.SchemaField("avg_surprise",         "FLOAT64"),
-    bigquery.SchemaField("avg_disgust",          "FLOAT64"),
-    bigquery.SchemaField("avg_neutral",          "FLOAT64"),
-    bigquery.SchemaField("anxiety_index",        "FLOAT64"),
-    bigquery.SchemaField("tension_index",        "FLOAT64"),
-    bigquery.SchemaField("positivity_index",     "FLOAT64"),
-    bigquery.SchemaField("dominant_emotion",     "STRING"),
-    # audio mood distribution for this region
-    bigquery.SchemaField("euphoric_pct",         "FLOAT64"),
-    bigquery.SchemaField("melancholic_pct",      "FLOAT64"),
-    bigquery.SchemaField("aggressive_pct",       "FLOAT64"),
-    bigquery.SchemaField("peaceful_pct",         "FLOAT64"),
-    bigquery.SchemaField("groovy_pct",           "FLOAT64"),
-    bigquery.SchemaField("dominant_mood",        "STRING"),
-    bigquery.SchemaField("avg_valence",          "FLOAT64"),
-    bigquery.SchemaField("avg_energy",           "FLOAT64"),
-    bigquery.SchemaField("avg_danceability",     "FLOAT64"),
-    bigquery.SchemaField("avg_tempo",            "FLOAT64"),
-    bigquery.SchemaField("ingested_at",          "TIMESTAMP"),
+    bigquery.SchemaField("week_start", "DATE"),
+    bigquery.SchemaField("region", "STRING"),
+    bigquery.SchemaField("avg_fear", "FLOAT64"),
+    bigquery.SchemaField("avg_anger", "FLOAT64"),
+    bigquery.SchemaField("avg_joy", "FLOAT64"),
+    bigquery.SchemaField("avg_sadness", "FLOAT64"),
+    bigquery.SchemaField("avg_surprise", "FLOAT64"),
+    bigquery.SchemaField("avg_disgust", "FLOAT64"),
+    bigquery.SchemaField("avg_neutral", "FLOAT64"),
+    bigquery.SchemaField("anxiety_index", "FLOAT64"),
+    bigquery.SchemaField("tension_index", "FLOAT64"),
+    bigquery.SchemaField("positivity_index", "FLOAT64"),
+    bigquery.SchemaField("dominant_emotion", "STRING"),
+    bigquery.SchemaField("euphoric_pct", "FLOAT64"),
+    bigquery.SchemaField("melancholic_pct", "FLOAT64"),
+    bigquery.SchemaField("aggressive_pct", "FLOAT64"),
+    bigquery.SchemaField("peaceful_pct", "FLOAT64"),
+    bigquery.SchemaField("groovy_pct", "FLOAT64"),
+    bigquery.SchemaField("dominant_mood", "STRING"),
+    bigquery.SchemaField("avg_valence", "FLOAT64"),
+    bigquery.SchemaField("avg_energy", "FLOAT64"),
+    bigquery.SchemaField("avg_danceability", "FLOAT64"),
+    bigquery.SchemaField("avg_tempo", "FLOAT64"),
+    bigquery.SchemaField("ingested_at", "TIMESTAMP"),
 ]
 
-
-# ── BQ helpers ──────────────────────────────────────────────────────────────────
 
 def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
@@ -97,19 +83,17 @@ def streaming_insert(client, table_id, rows, chunk=500):
         errors = client.insert_rows_json(table_id, rows[i : i + chunk])
         if errors:
             logger.error(f"Insert error at {i}: {errors[:2]}")
-    logger.info(f"Inserted {len(rows):,} rows → {table_id}")
+    logger.info(f"Inserted {len(rows):,} rows -> {table_id}")
 
-
-# ── Main ────────────────────────────────────────────────────────────────────────
 
 def main():
     client = bigquery.Client(project=PROJECT)
     now_ts = datetime.now(timezone.utc).isoformat()
 
-    # 1. Load news_sentiment_weekly — average across topics per week (global signal)
-    logger.info("Reading news_sentiment_weekly …")
+    # load news sentiment and average across topics per week
+    logger.info("Reading news_sentiment_weekly ...")
     news_df = client.query(f"SELECT * FROM `{NEWS_AGG}`").to_dataframe()
-    logger.info(f"  {len(news_df):,} rows (week × topic)")
+    logger.info(f"  {len(news_df):,} rows (week x topic)")
 
     news_weekly = (
         news_df.groupby("week_start")[
@@ -122,35 +106,33 @@ def main():
     )
     news_weekly["week_start"] = pd.to_datetime(news_weekly["week_start"])
 
-    # 2. Load audio_mood_regional — pre-aggregated by (week, region) from Layer 2
-    logger.info("Reading audio_mood_regional …")
+    logger.info("Reading audio_mood_regional ...")
     audio_df = client.query(f"SELECT * FROM `{AUDIO_REGIONAL}`").to_dataframe()
-    logger.info(f"  {len(audio_df):,} rows (week × region)")
+    logger.info(f"  {len(audio_df):,} rows (week x region)")
     audio_df["week_start"] = pd.to_datetime(audio_df["week_start"])
 
     if audio_df.empty:
-        logger.error("audio_mood_regional is empty — run audio_mood_clusters.py first.")
+        logger.error("audio_mood_regional is empty -- run audio_mood_clusters.py first.")
         return
 
-    # 3. For each region: apply z-score dominant_mood, left join with news, build rows
     all_joined = []
-    corr_rows  = []
+    corr_rows = []
     z_map = {"euphoric_pct_z": "euphoric", "melancholic_pct_z": "melancholic",
               "aggressive_pct_z": "aggressive"}
 
     for region in REGIONS:
         region_df = audio_df[audio_df["region"] == region].copy()
         if region_df.empty:
-            logger.warning(f"  [{region}] No audio data — skipping")
+            logger.warning(f"  [{region}] No audio data -- skipping")
             continue
 
         logger.info(f"  [{region}] {len(region_df)} weeks of audio data")
 
-        # Z-score relative dominant_mood within this region's own history
+        # z-score dominant_mood within this region's history
         for col in ["euphoric_pct", "melancholic_pct", "aggressive_pct"]:
             mean_v = region_df[col].mean()
-            std_v  = region_df[col].std()
-            z_col  = f"{col}_z"
+            std_v = region_df[col].std()
+            z_col = f"{col}_z"
             if pd.notna(std_v) and std_v > 1e-4:
                 region_df[z_col] = (region_df[col] - mean_v) / std_v
             else:
@@ -161,7 +143,7 @@ def main():
         mood_dist = region_df["dominant_mood"].value_counts().to_dict()
         logger.info(f"  [{region}] dominant_mood (z-score): {mood_dist}")
 
-        # Left join with global news (news has no regional split yet)
+        # join with global news (no regional split on news yet)
         joined = pd.merge(region_df, news_weekly, on="week_start", how="left")
         for col in EMOTION_COLS:
             col_mean = joined[col].mean()
@@ -175,9 +157,9 @@ def main():
         joined["region"] = region
         all_joined.append(joined)
 
-        # Pearson correlations per region
+        # pearson correlations per region
         if len(joined) < 3:
-            logger.warning(f"  [{region}] Too few weeks for correlation — skipping")
+            logger.warning(f"  [{region}] Too few weeks for correlation -- skipping")
             continue
         for emotion in EMOTION_COLS:
             for mood_pct in MOOD_PCT_COLS:
@@ -190,43 +172,43 @@ def main():
                 if np.isnan(r) or np.isnan(p):
                     continue
                 corr_rows.append({
-                    "region":         region,
-                    "emotion":        emotion,
+                    "region": region,
+                    "emotion": emotion,
                     "mood_archetype": mood_pct.replace("_pct", ""),
-                    "pearson_r":      round(float(r), 6),
-                    "p_value":        round(float(p), 6),
-                    "significant":    bool(p < 0.05),
-                    "direction":      "positive" if r > 0 else "negative",
+                    "pearson_r": round(float(r), 6),
+                    "p_value": round(float(p), 6),
+                    "significant": bool(p < 0.05),
+                    "direction": "positive" if r > 0 else "negative",
                     "weeks_compared": int(mask.sum()),
-                    "ingested_at":    now_ts,
+                    "ingested_at": now_ts,
                 })
 
     if not all_joined:
-        logger.error("No regional data found — aborting.")
+        logger.error("No regional data found -- aborting.")
         return
 
     full_joined = pd.concat(all_joined, ignore_index=True)
 
-    # Sort correlations by absolute strength
+    # sort correlations by absolute strength
     corr_rows.sort(key=lambda x: abs(x["pearson_r"]), reverse=True)
     logger.info(f"Top 10 correlations (all regions):")
     for row in corr_rows[:10]:
-        sig = "✓" if row["significant"] else " "
+        sig = "Y" if row["significant"] else " "
         logger.info(
-            f"  [{sig}] {row['region']:14s}  {row['emotion']:20s} ↔ {row['mood_archetype']:12s}  "
+            f"  [{sig}] {row['region']:14s}  {row['emotion']:20s} <> {row['mood_archetype']:12s}  "
             f"r={row['pearson_r']:+.3f}  p={row['p_value']:.3f}"
         )
 
-    # 4. Write emotion_music_correlation
+    # write correlation table
     ensure_table(client, CORR_TABLE, CORR_SCHEMA)
     streaming_insert(client, CORR_TABLE, corr_rows)
 
-    # 5. Write weekly_features (4 rows per week — one per region; input for Layer 4 XGBoost)
+    # write weekly_features (4 rows per week, one per region)
     joined_rows = []
     for _, r in full_joined.iterrows():
         row_dict = {
             "week_start": str(r["week_start"].date()),
-            "region":     str(r["region"]),
+            "region": str(r["region"]),
             "ingested_at": now_ts,
         }
         for col in EMOTION_COLS:
@@ -240,14 +222,9 @@ def main():
     ensure_table(client, JOINED_TABLE, JOINED_SCHEMA)
     streaming_insert(client, JOINED_TABLE, joined_rows)
 
-    # 6. Summary
     sig_count = sum(1 for r in corr_rows if r["significant"])
-    logger.info("─── LAYER 3 COMPLETE ───")
-    logger.info(f"  Regions processed          : {len(all_joined)}")
-    logger.info(f"  Total weekly_features rows : {len(joined_rows)} ({len(joined_rows)//max(len(all_joined),1)} per region)")
-    logger.info(f"  Correlation pairs computed : {len(corr_rows)}")
-    logger.info(f"  Significant (p<0.05)       : {sig_count}")
-    logger.info(f"  weekly_features ready for Layer 4 XGBoost (4 models × 1 per region)")
+    logger.info(f"Done -- {len(all_joined)} regions, {len(joined_rows)} feature rows, "
+                f"{len(corr_rows)} correlations ({sig_count} significant)")
 
 
 if __name__ == "__main__":
