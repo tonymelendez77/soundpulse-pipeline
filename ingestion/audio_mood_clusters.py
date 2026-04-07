@@ -309,7 +309,7 @@ def main():
         for week_start, grp in rdf.groupby("week_start"):
             mood_counts = grp["mood_archetype"].value_counts()
             total = len(grp)
-            pcts = {arch: mood_counts.get(arch, 0) / total for arch in ARCHETYPE_NAMES}
+            pcts = {f"{arch}_pct": mood_counts.get(arch, 0) / total for arch in ARCHETYPE_NAMES}
             pcts["week_start"] = str(week_start)
             pcts["track_count"] = total
             pcts["avg_valence"] = float(grp["valence"].mean())
@@ -344,11 +344,11 @@ def main():
                 "region": region,
                 "dominant_mood": row["dominant_mood"],
                 "track_count": int(row["track_count"]),
-                "euphoric_pct": round(float(row["euphoric"]), 6),
-                "melancholic_pct": round(float(row["melancholic"]), 6),
-                "aggressive_pct": round(float(row["aggressive"]), 6),
-                "peaceful_pct": round(float(row.get("peaceful", 0)), 6),
-                "groovy_pct": round(float(row.get("groovy", 0)), 6),
+                "euphoric_pct": round(float(row["euphoric_pct"]), 6),
+                "melancholic_pct": round(float(row["melancholic_pct"]), 6),
+                "aggressive_pct": round(float(row["aggressive_pct"]), 6),
+                "peaceful_pct": round(float(row.get("peaceful_pct", 0)), 6),
+                "groovy_pct": round(float(row.get("groovy_pct", 0)), 6),
                 "avg_valence": round(float(row["avg_valence"]), 6),
                 "avg_energy": round(float(row["avg_energy"]), 6),
                 "avg_danceability": round(float(row["avg_danceability"]), 6),
