@@ -3,6 +3,8 @@ Correlates news emotion scores with audio mood distributions per region,
 then writes a joined weekly features table for downstream modeling.
 """
 
+import io
+import json
 import time
 from datetime import datetime, timezone
 
@@ -74,16 +76,23 @@ def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
     table = bigquery.Table(table_id, schema=schema)
     client.create_table(table)
-    time.sleep(3)   # BQ streaming insert needs a moment after table (re)creation
+    time.sleep(10)
     logger.info(f"Table ready: {table_id}")
 
 
-def streaming_insert(client, table_id, rows, chunk=500):
-    for i in range(0, len(rows), chunk):
-        errors = client.insert_rows_json(table_id, rows[i : i + chunk])
-        if errors:
-            logger.error(f"Insert error at {i}: {errors[:2]}")
-    logger.info(f"Inserted {len(rows):,} rows -> {table_id}")
+def load_rows(client, table_id, rows):
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE",
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+    )
+    ndjson = "\n".join(json.dumps(r) for r in rows)
+    job = client.load_table_from_file(
+        io.BytesIO(ndjson.encode()),
+        table_id,
+        job_config=job_config,
+    )
+    job.result()
+    logger.info(f"Loaded {len(rows):,} rows -> {table_id}")
 
 
 def main():
@@ -201,7 +210,7 @@ def main():
 
     # write correlation table
     ensure_table(client, CORR_TABLE, CORR_SCHEMA)
-    streaming_insert(client, CORR_TABLE, corr_rows)
+    load_rows(client, CORR_TABLE, corr_rows)
 
     # write weekly_features (4 rows per week, one per region)
     joined_rows = []
@@ -220,7 +229,7 @@ def main():
         joined_rows.append(row_dict)
 
     ensure_table(client, JOINED_TABLE, JOINED_SCHEMA)
-    streaming_insert(client, JOINED_TABLE, joined_rows)
+    load_rows(client, JOINED_TABLE, joined_rows)
 
     sig_count = sum(1 for r in corr_rows if r["significant"])
     logger.info(f"Done -- {len(all_joined)} regions, {len(joined_rows)} feature rows, "

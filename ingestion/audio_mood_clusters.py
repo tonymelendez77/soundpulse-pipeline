@@ -3,6 +3,8 @@ M10: KMeans clustering on 30 audio features from trending_historical.
 Outputs per-track clusters + weekly/regional mood aggregates.
 """
 
+import io
+import json
 import time
 from datetime import datetime, timezone
 
@@ -194,16 +196,24 @@ def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
     table = bigquery.Table(table_id, schema=schema)
     client.create_table(table)
-    time.sleep(5)
+    time.sleep(10)
     logger.info(f"Table ready: {table_id}")
 
 
-def streaming_insert(client, table_id, rows, chunk=500):
-    for i in range(0, len(rows), chunk):
-        errors = client.insert_rows_json(table_id, rows[i : i + chunk])
-        if errors:
-            logger.error(f"BQ insert errors at row {i}: {errors[:2]}")
-    logger.info(f"Inserted {len(rows):,} rows into {table_id}")
+def load_rows(client, table_id, rows):
+    """Load via NDJSON load job (no streaming race condition)."""
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE",
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+    )
+    ndjson = "\n".join(json.dumps(r) for r in rows)
+    job = client.load_table_from_file(
+        io.BytesIO(ndjson.encode()),
+        table_id,
+        job_config=job_config,
+    )
+    job.result()
+    logger.info(f"Loaded {len(rows):,} rows into {table_id}")
 
 
 def main():
@@ -272,7 +282,7 @@ def main():
         }
         for _, r in df.iterrows()
     ]
-    streaming_insert(client, DST_TABLE, track_rows)
+    load_rows(client, DST_TABLE, track_rows)
 
     # weekly aggregation by chart
     df["week_start"] = pd.to_datetime(df["week_start"]).dt.date.astype(str)
@@ -300,7 +310,7 @@ def main():
         })
 
     ensure_table(client, AGG_TABLE, AGG_SCHEMA)
-    streaming_insert(client, AGG_TABLE, agg_rows)
+    load_rows(client, AGG_TABLE, agg_rows)
 
     # regional aggregation with z-score labeling per region
     df["region"] = df["chart_name"].map(CHART_REGION_MAP).fillna("global")
@@ -359,7 +369,7 @@ def main():
             })
 
     ensure_table(client, REGIONAL_TABLE, REGIONAL_SCHEMA)
-    streaming_insert(client, REGIONAL_TABLE, regional_rows)
+    load_rows(client, REGIONAL_TABLE, regional_rows)
 
     logger.info(f"Done: {len(df):,} tracks, k={best_k}, {len(agg_rows)} weekly, {len(regional_rows)} regional")
     logger.info(f"Archetypes: {df['mood_archetype'].value_counts().to_dict()}")
