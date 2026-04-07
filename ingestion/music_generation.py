@@ -100,12 +100,12 @@ def ensure_gen_table(client: bigquery.Client) -> None:
     logger.info(f"Table ready: {GEN_TABLE}")
 
 
-def weekly_song_exists_this_week(client: bigquery.Client, week_start: str, region: str) -> bool:
-    """Return True if a weekly song has already been generated for this week+region."""
+def song_exists(client: bigquery.Client, period: str, week_start: str, region: str) -> bool:
+    """Return True if a song for the given period/week/region already exists."""
     query = f"""
         SELECT COUNT(*) AS n
         FROM `{GEN_TABLE}`
-        WHERE period = 'weekly'
+        WHERE period = '{period}'
           AND region = '{region}'
           AND CAST(week_start AS STRING) = '{week_start}'
     """
@@ -113,7 +113,7 @@ def weekly_song_exists_this_week(client: bigquery.Client, week_start: str, regio
         rows = list(client.query(query).result())
         return rows[0]["n"] > 0 if rows else False
     except Exception as e:
-        logger.warning(f"weekly_song_exists check failed ({e}) — assuming no song exists")
+        logger.warning(f"song_exists check failed ({e}) — assuming no")
         return False
 
 
@@ -495,13 +495,13 @@ def main():
     this_monday = today - timedelta(days=today.weekday())
     week_start_str = str(this_monday)
 
-    # today period always runs; monthly only on 1st
     base_periods_due = {"today"}
     if today.day == 1:
         base_periods_due.add("monthly")
     logger.info(f"Base periods due today ({today}): {base_periods_due}")
 
     songs_generated = 0
+    month_start_str = str(today.replace(day=1))
 
     for region in REGIONS:
         preds = region_predictions.get(region)
@@ -510,10 +510,13 @@ def main():
             continue
 
         periods_due = set(base_periods_due)
-        if today.weekday() == 0 or not weekly_song_exists_this_week(bq_client, week_start_str, region):
+        if today.weekday() == 0 or not song_exists(bq_client, "weekly", week_start_str, region):
             periods_due.add("weekly")
             if today.weekday() != 0:
-                logger.info(f"  [{region}] weekly: no song this week — generating outside Monday")
+                logger.info(f"  [{region}] weekly: no song this week — generating catch-up")
+        if today.day != 1 and not song_exists(bq_client, "monthly", month_start_str, region):
+            periods_due.add("monthly")
+            logger.info(f"  [{region}] monthly: no song this month — generating catch-up")
 
         for period_name in ("today", "weekly", "monthly"):
             if period_name not in periods_due:
