@@ -3,6 +3,7 @@ M10: KMeans clustering on 30 audio features from trending_historical.
 Outputs per-track clusters + weekly/regional mood aggregates.
 """
 
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -193,6 +194,7 @@ def ensure_table(client, table_id, schema):
     client.delete_table(table_id, not_found_ok=True)
     table = bigquery.Table(table_id, schema=schema)
     client.create_table(table)
+    time.sleep(5)
     logger.info(f"Table ready: {table_id}")
 
 
