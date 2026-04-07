@@ -176,38 +176,37 @@ def fetch_latest_emotions(client: bigquery.Client, region: str) -> tuple[dict, d
     return emotion_dict, mood_pct_dict
 
 
-def fetch_month_emotions(client: bigquery.Client, region: str, year: int, month: int) -> tuple[dict, dict]:
-    """Get averaged emotions and mood pcts for a given month."""
+def fetch_rolling_emotions(client: bigquery.Client, region: str, n_weeks: int) -> tuple[dict, dict]:
+    """Average the last n_weeks of emotion/mood data for a region."""
     query = f"""
         SELECT
-            AVG(avg_fear)          AS avg_fear,
-            AVG(avg_anger)         AS avg_anger,
-            AVG(avg_joy)           AS avg_joy,
-            AVG(avg_sadness)       AS avg_sadness,
-            AVG(avg_surprise)      AS avg_surprise,
-            AVG(avg_disgust)       AS avg_disgust,
-            AVG(avg_neutral)       AS avg_neutral,
-            AVG(anxiety_index)     AS anxiety_index,
-            AVG(tension_index)     AS tension_index,
-            AVG(positivity_index)  AS positivity_index,
-            AVG(COALESCE(euphoric_pct,    0.0)) AS euphoric_pct,
+            AVG(avg_fear) AS avg_fear, AVG(avg_anger) AS avg_anger,
+            AVG(avg_joy) AS avg_joy, AVG(avg_sadness) AS avg_sadness,
+            AVG(avg_surprise) AS avg_surprise, AVG(avg_disgust) AS avg_disgust,
+            AVG(avg_neutral) AS avg_neutral,
+            AVG(anxiety_index) AS anxiety_index,
+            AVG(tension_index) AS tension_index,
+            AVG(positivity_index) AS positivity_index,
+            AVG(COALESCE(euphoric_pct, 0.0)) AS euphoric_pct,
             AVG(COALESCE(melancholic_pct, 0.0)) AS melancholic_pct,
-            AVG(COALESCE(aggressive_pct,  0.0)) AS aggressive_pct,
-            AVG(COALESCE(peaceful_pct,    0.0)) AS peaceful_pct,
-            AVG(COALESCE(groovy_pct,      0.0)) AS groovy_pct
-        FROM `{SRC_TABLE}`
-        WHERE region = '{region}'
-          AND EXTRACT(YEAR  FROM week_start) = {year}
-          AND EXTRACT(MONTH FROM week_start) = {month}
+            AVG(COALESCE(aggressive_pct, 0.0)) AS aggressive_pct,
+            AVG(COALESCE(peaceful_pct, 0.0)) AS peaceful_pct,
+            AVG(COALESCE(groovy_pct, 0.0)) AS groovy_pct
+        FROM (
+            SELECT * FROM `{SRC_TABLE}`
+            WHERE region = '{region}'
+            ORDER BY week_start DESC
+            LIMIT {n_weeks}
+        )
     """
     rows = list(client.query(query).result())
     if not rows or rows[0]["avg_fear"] is None:
-        logger.warning(f"  [{region}] No data for {year}-{month:02d}, falling back to latest week")
+        logger.warning(f"  [{region}] No data for {n_weeks}w rolling, falling back to latest")
         return fetch_latest_emotions(client, region)
     row = rows[0]
     emotion_dict = {f: float(row[f] or 0.0) for f in EMOTION_FEATURES}
     mood_pct_dict = {f: float(row[f] or 0.0) for f in MOOD_PCT_FEATURES}
-    logger.info(f"  [{region}] Monthly emotions: {year}-{month:02d} averaged")
+    logger.info(f"  [{region}] Rolling {n_weeks}w emotions averaged")
     return emotion_dict, mood_pct_dict
 
 
@@ -410,16 +409,17 @@ def train_region(client, region, now_ts, today_d, this_monday, this_month1):
     # Forward inference for today/weekly/monthly
     try:
         latest_emo, latest_pct = fetch_latest_emotions(client, region)
-        month_emo, month_pct = fetch_month_emotions(client, region, today_d.year, today_d.month)
+        weekly_emo, weekly_pct = fetch_rolling_emotions(client, region, 2)
+        monthly_emo, monthly_pct = fetch_rolling_emotions(client, region, 4)
     except Exception as exc:
-        logger.warning(f"  [{region}] Could not fetch latest emotions ({exc}), using zero features")
-        latest_emo = month_emo = {f: 0.0 for f in EMOTION_FEATURES}
-        latest_pct = month_pct = {f: 0.0 for f in MOOD_PCT_FEATURES}
+        logger.warning(f"  [{region}] Could not fetch emotions ({exc}), using zero features")
+        latest_emo = weekly_emo = monthly_emo = {f: 0.0 for f in EMOTION_FEATURES}
+        latest_pct = weekly_pct = monthly_pct = {f: 0.0 for f in MOOD_PCT_FEATURES}
 
     period_configs = [
         ("today", latest_emo, latest_pct, today_d),
-        ("weekly", latest_emo, latest_pct, this_monday),
-        ("monthly", month_emo, month_pct, this_month1),
+        ("weekly", weekly_emo, weekly_pct, this_monday),
+        ("monthly", monthly_emo, monthly_pct, this_month1),
     ]
     for period_name, emo, pcts, tgt_date in period_configs:
         result = predict_for_period(model, le, emo, pcts, tgt_date)
