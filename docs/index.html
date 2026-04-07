@@ -1145,7 +1145,7 @@
   <button class="region-tab"        data-region="north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
   <button class="region-tab"        data-region="latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
   <button class="region-tab"        data-region="europe"        onclick="selectRegion('europe')">🌍 Europe</button>
-  <span style="margin-left:auto; font-size:.72rem; color:var(--muted);" id="region-filter-note">Filters: Correlation · SHAP · Audio Tiles</span>
+  <span style="margin-left:auto; font-size:.72rem; color:var(--muted);" id="region-filter-note">Filters: Audio · Correlation · Timeline · SHAP · Song Archive</span>
 </div>
 
 <!-- SECTION 1 — CORRELATION -->
@@ -1541,6 +1541,14 @@ window.selectRegion = function(region) {
   // Re-render region-aware charts
   if (window._correlationData) renderHeatmap(region);
   if (window._shapData) renderShap(region);
+  if (window._timelineData) renderTimeline(region);
+
+  // Filter song history
+  const histItems = document.querySelectorAll('#history-list .hist-item');
+  histItems.forEach(el => {
+    const r = el.dataset.region;
+    el.style.display = (!r || r === region) ? '' : 'none';
+  });
 
   const base   = REGION_AUDIO_BASE[region] || 'audio/global/';
   const tracks = window._tracksByRegion[region] || {};
@@ -1668,13 +1676,19 @@ async function initHeatmap() {
 
 // Chart 2 — Timeline (dual axis)
 
-async function initTimeline() {
-  const data = await load('timeline.json');
+window._timelineData = null;
+
+function renderTimeline(region) {
+  const all = window._timelineData;
+  if (!all || !all.length) return;
+  const data = all.filter(d => !d.region || d.region === region);
+  if (!data.length) return;
+
   const weeks = data.map(d => d.week_start);
 
   const indexTraces = [
-    { key: 'anxiety_index',    name: 'Anxiety',    color: '#ef476f' },
-    { key: 'tension_index',    name: 'Tension',    color: '#f4a261' },
+    { key: 'anxiety_index', name: 'Anxiety', color: '#ef476f' },
+    { key: 'tension_index', name: 'Tension', color: '#f4a261' },
     { key: 'positivity_index', name: 'Positivity', color: '#06d6a0' },
   ].map(({ key, name, color }) => ({
     type: 'scatter', mode: 'lines+markers',
@@ -1698,11 +1712,10 @@ async function initTimeline() {
     hovertemplate: 'Week: %{x}<br>Mood: %{text}<extra></extra>',
   };
 
-  clearLoading('chart-timeline');
-  Plotly.newPlot('chart-timeline', [...indexTraces, moodTrace], {
+  Plotly.react('chart-timeline', [...indexTraces, moodTrace], {
     ...PLOTLY_LAYOUT,
     height: 400,
-    yaxis:  { ...PLOTLY_LAYOUT.yaxis, title: 'Sentiment Index', autorange: true },
+    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'Sentiment Index', autorange: true },
     yaxis2: {
       overlaying: 'y', side: 'right', title: '',
       tickvals: [0,1,2,3,4],
@@ -1715,6 +1728,12 @@ async function initTimeline() {
     margin: { l: 0, r: 100, t: 30, b: 50 },
     hovermode: 'x unified',
   }, CONFIG);
+}
+
+async function initTimeline() {
+  window._timelineData = await load('timeline.json');
+  clearLoading('chart-timeline');
+  renderTimeline(window._activeRegion || 'global');
 }
 
 // Chart 3 — SHAP + predictions (SHAP is region-filterable)
@@ -2322,21 +2341,26 @@ window.filterHistory = (period) => {
     el.innerHTML = '<p style="color:var(--muted)">No entries yet for this period.</p>';
     return;
   }
-  el.innerHTML = items.map(s => `
-    <div class="history-item">
+  const activeRegion = window._activeRegion || 'global';
+  el.innerHTML = items.map(s => {
+    const r = s.region || 'global';
+    const hidden = r !== activeRegion ? 'display:none;' : '';
+    const regionTag = s.region_label ? `<span style="font-size:.7rem;color:var(--accent);margin-left:6px">${s.region_label}</span>` : '';
+    return `
+    <div class="history-item hist-item" data-region="${r}" style="${hidden}">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <span class="mood-chip" style="background:${MOOD_COLORS[s.mood_archetype]||'#888'};
           color:${['euphoric','peaceful'].includes(s.mood_archetype)?'#000':'#fff'}">
           ${s.mood_archetype || '—'}
         </span>
-        <strong>${s.label}</strong>
-        ${s.confidence ? `<span style="color:var(--muted);font-size:.78rem;margin-left:auto">${(s.confidence*100).toFixed(0)}% conf</span>` : ''}
+        <strong>${s.label}</strong>${regionTag}
       </div>
       <audio controls preload="none" style="width:100%;margin-bottom:8px">
         <source src="${s.audio_path}" type="audio/wav" />
       </audio>
       <div style="font-size:.76rem;color:var(--muted);font-style:italic">"${s.prompt_text}"</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 };
 
 // Boot — run all in parallel, show errors gracefully

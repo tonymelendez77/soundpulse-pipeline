@@ -83,6 +83,7 @@ def export_timeline(client):
     data = bq_to_json(client, f"""
         SELECT
             CAST(week_start AS STRING) AS week_start,
+            region,
             CAST(avg_fear AS FLOAT64) AS avg_fear,
             CAST(avg_anger AS FLOAT64) AS avg_anger,
             CAST(avg_joy AS FLOAT64) AS avg_joy,
@@ -98,8 +99,8 @@ def export_timeline(client):
             CAST(avg_energy AS FLOAT64) AS avg_energy,
             CAST(avg_danceability AS FLOAT64) AS avg_danceability,
             CAST(avg_tempo AS FLOAT64) AS avg_tempo
-        FROM `{DATASET}.stg_weekly_features`
-        ORDER BY week_start ASC
+        FROM `{RAW}.weekly_features`
+        ORDER BY week_start ASC, region ASC
     """)
     write_json(DATA_DIR / "timeline.json", data)
 
