@@ -1788,23 +1788,31 @@ function renderShap(region) {
         .forEach(d => topFeatures.add(d.feature));
     });
 
+    // sort features by max SHAP across archetypes (largest at top)
+    const featureMax = {};
+    topFeatures.forEach(f => { featureMax[f] = 0; });
+    shapData.filter(d => topFeatures.has(d.feature)).forEach(d => {
+      const v = parseFloat(d.mean_abs_shap);
+      if (v > (featureMax[d.feature] || 0)) featureMax[d.feature] = v;
+    });
+    const sortedFeatures = [...topFeatures].sort((a,b) => featureMax[a] - featureMax[b]);
+
     const shapTraces = archetypes.map(arch => {
-      const rows = shapData.filter(d => d.mood_archetype === arch && topFeatures.has(d.feature))
-        .sort((a,b) => parseFloat(b.mean_abs_shap) - parseFloat(a.mean_abs_shap));
       return {
         type: 'bar', orientation: 'h', name: arch,
-        x: rows.map(d => parseFloat(d.mean_abs_shap)),
-        y: rows.map(d => d.feature.replace('avg_','').replace(/_/g,' ')),
+        x: sortedFeatures.map(f => {
+          const row = shapData.find(d => d.mood_archetype === arch && d.feature === f);
+          return row ? parseFloat(row.mean_abs_shap) : 0;
+        }),
+        y: sortedFeatures.map(f => f.replace('avg_','').replace(/_/g,' ')),
         marker: { color: MOOD_COLORS[arch] || '#888', opacity: 0.9 },
-        text: rows.map(d => parseFloat(d.mean_abs_shap).toFixed(3)),
-        textposition: 'auto', insidetextanchor: 'middle',
         hovertemplate: `${arch}<br>%{y}: %{x:.4f}<extra></extra>`,
       };
     });
     Plotly.react('chart-shap', shapTraces, {
-      ...PLOTLY_LAYOUT, height: 460, barmode: 'group',
+      ...PLOTLY_LAYOUT, height: 420, barmode: 'group',
       xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Mean |SHAP|', autorange: true, automargin: true },
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, automargin: true, categoryorder: 'array', categoryarray: sortedFeatures.map(f => f.replace('avg_','').replace(/_/g,' ')) },
       legend: { bgcolor:'transparent', orientation:'h', x:0.5, xanchor:'center', y:1.06, yanchor:'bottom' },
       margin: { l: 85, r: 60, t: 50, b: 50 },
     }, CONFIG);
