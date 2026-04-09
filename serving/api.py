@@ -1,12 +1,9 @@
 """
-SoundPulse — Module 14
-FastAPI backend — queries BigQuery dbt_transformed views/tables and returns JSON.
-
-Run:
-    uvicorn serving.api:app --reload --port 8000
+SoundPulse FastAPI backend. Queries BigQuery and returns JSON for dashboards.
 """
 
 import json
+import math
 import os
 from datetime import datetime, timezone
 from typing import Optional
@@ -15,10 +12,10 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
 from google.oauth2 import service_account
-import math
 
 PROJECT = "soundpulse-production"
 DATASET = f"{PROJECT}.dbt_transformed"
+RAW = f"{PROJECT}.music_analytics"
 
 app = FastAPI(title="SoundPulse API", version="1.0.0")
 app.add_middleware(
@@ -30,21 +27,13 @@ app.add_middleware(
 
 
 def _make_client() -> bigquery.Client:
-    """
-    Supports three credential modes (in priority order):
-    1. GCP_SERVICE_ACCOUNT_JSON env var — JSON string (Render secret env var)
-    2. GOOGLE_APPLICATION_CREDENTIALS env var — path to key file (local / GH Actions)
-    3. Application Default Credentials (local dev with gcloud auth)
-    """
     raw = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
     if raw:
         info = json.loads(raw)
         creds = service_account.Credentials.from_service_account_info(
-            info,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            info, scopes=["https://www.googleapis.com/auth/cloud-platform"],
         )
         return bigquery.Client(project=PROJECT, credentials=creds)
-    # Falls through to ADC / GOOGLE_APPLICATION_CREDENTIALS automatically
     return bigquery.Client(project=PROJECT)
 
 
@@ -52,58 +41,58 @@ client = _make_client()
 
 
 def _run(query: str) -> list[dict]:
-    """Execute a BQ query and return rows as a list of dicts."""
     df = client.query(query).to_dataframe()
-    # Convert non-serialisable types (date, Timestamp, Decimal) to plain Python
     for col in df.select_dtypes(include=["dbdate", "datetime64[ns]", "datetime64[ns, UTC]",
                                           "object"]).columns:
         df[col] = df[col].astype(str)
-
-
     return [
-    {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
-    for row in df.to_dict(orient="records")
-]
+        {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
+        for row in df.to_dict(orient="records")
+    ]
 
 
-# Health
+def _region_clause(region: Optional[str], prefix: str = "") -> str:
+    if not region or region == "all":
+        return ""
+    col = f"{prefix}region" if prefix else "region"
+    return f"WHERE {col} = '{region}'"
+
 
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-# Correlation
-
 @app.get("/correlation")
-def correlation():
-    """50 Pearson r values: 10 emotions × 5 mood archetypes."""
+def correlation(region: Optional[str] = Query(default=None)):
     try:
+        where = _region_clause(region)
         rows = _run(f"""
-            SELECT emotion, mood_archetype, pearson_r, direction, notable
-            FROM `{DATASET}.fct_emotion_music_correlation`
-            ORDER BY mood_archetype, emotion
+            SELECT region, emotion, mood_archetype, pearson_r, direction, significant AS notable
+            FROM `{RAW}.emotion_music_correlation`
+            {where}
+            ORDER BY region, mood_archetype, emotion
         """)
         return rows
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Timeline
-
 @app.get("/timeline")
-def timeline():
-    """Week-level emotion indices + dominant mood — XGBoost input table."""
+def timeline(region: Optional[str] = Query(default=None)):
     try:
+        where = _region_clause(region)
         rows = _run(f"""
             SELECT
                 CAST(week_start AS STRING) AS week_start,
+                region,
                 avg_fear, avg_anger, avg_joy, avg_sadness,
                 avg_surprise, avg_disgust, avg_neutral,
                 anxiety_index, tension_index, positivity_index,
                 dominant_emotion, dominant_mood,
                 avg_valence, avg_energy, avg_danceability, avg_tempo
-            FROM `{DATASET}.stg_weekly_features`
+            FROM `{RAW}.weekly_features`
+            {where}
             ORDER BY week_start ASC
         """)
         return rows
@@ -111,29 +100,31 @@ def timeline():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# SHAP importance
-
 @app.get("/shap")
-def shap(mood: Optional[str] = Query(default=None, description="Filter by mood_archetype")):
-    """SHAP feature importance per mood archetype. Optional ?mood= filter."""
+def shap(
+    mood: Optional[str] = Query(default=None),
+    region: Optional[str] = Query(default=None),
+):
     try:
-        where = f"WHERE mood_archetype = '{mood}'" if mood else ""
+        conditions = []
+        if mood:
+            conditions.append(f"mood_archetype = '{mood}'")
+        if region and region != "all":
+            conditions.append(f"region = '{region}'")
+        where = "WHERE " + " AND ".join(conditions) if conditions else ""
         rows = _run(f"""
-            SELECT feature, mood_archetype, mean_shap_value, mean_abs_shap, importance_rank
-            FROM `{DATASET}.stg_shap_importance`
+            SELECT region, feature, mood_archetype, mean_shap_value, mean_abs_shap, rank AS importance_rank
+            FROM `{RAW}.shap_importance`
             {where}
-            ORDER BY mood_archetype, importance_rank ASC
+            ORDER BY region, mood_archetype, rank ASC
         """)
         return rows
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Mood weekly
-
 @app.get("/mood-weekly")
 def mood_weekly():
-    """Week × chart_source dominant mood with archetype percentages."""
     try:
         rows = _run(f"""
             SELECT
@@ -150,11 +141,28 @@ def mood_weekly():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Predictions
+@app.get("/mood-regional")
+def mood_regional(region: Optional[str] = Query(default=None)):
+    try:
+        where = _region_clause(region)
+        rows = _run(f"""
+            SELECT
+                CAST(week_start AS STRING) AS week_start,
+                region, dominant_mood, track_count,
+                euphoric_pct, melancholic_pct, aggressive_pct,
+                peaceful_pct, groovy_pct,
+                avg_valence, avg_energy, avg_danceability, avg_tempo
+            FROM `{RAW}.audio_mood_regional`
+            {where}
+            ORDER BY week_start ASC, region ASC
+        """)
+        return rows
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/predictions")
 def predictions():
-    """XGBoost mood predictions with per-week accuracy + model-level stats."""
     try:
         rows = _run(f"""
             SELECT
@@ -173,11 +181,8 @@ def predictions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# News sentiment
-
 @app.get("/news-sentiment")
-def news_sentiment(topic: Optional[str] = Query(default=None, description="Filter by topic")):
-    """Week × topic aggregated emotion scores. Optional ?topic= filter."""
+def news_sentiment(topic: Optional[str] = Query(default=None)):
     try:
         where = f"WHERE topic = '{topic}'" if topic else ""
         rows = _run(f"""
@@ -196,23 +201,23 @@ def news_sentiment(topic: Optional[str] = Query(default=None, description="Filte
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Generated tracks
-
 @app.get("/generated-tracks")
-def generated_tracks():
-    """Most recent MusicGen generation runs (up to 10)."""
+def generated_tracks(region: Optional[str] = Query(default=None)):
     try:
+        where = _region_clause(region)
         rows = _run(f"""
             SELECT
                 generation_id,
                 CAST(week_start AS STRING) AS week_start,
-                mood_archetype, prompt_text,
+                region, period,
+                mood_archetype, prompt_text, mood_blend_json,
                 similar_tracks_json, audio_gcs_path,
                 duration_seconds,
                 CAST(generated_at AS STRING) AS generated_at
-            FROM `{DATASET}.stg_generated_tracks`
+            FROM `{RAW}.generated_tracks`
+            {where}
             ORDER BY generated_at DESC
-            LIMIT 10
+            LIMIT 20
         """)
         return rows
     except Exception as e:
