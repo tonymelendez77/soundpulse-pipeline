@@ -1346,8 +1346,8 @@
       ></iframe>
       <div id="dash1-fallback" class="dash-fallback" style="display:none">
         <div style="font-size:2.2rem; margin-bottom:12px;">📊</div>
-        <div style="color:var(--text); font-weight:700; font-size:1rem; margin-bottom:8px;">Dashboard offline</div>
-        <div>Start it with: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#79c0ff;">streamlit run serving/dashboard_mood.py --server.port 8501</code><br>then refresh this page.</div>
+        <div style="color:var(--text); font-weight:700; font-size:1rem; margin-bottom:8px;">Dashboard loading</div>
+        <div>Streamlit Cloud apps sleep after inactivity. <a href="https://soundpulse-mood.streamlit.app" target="_blank" style="color:var(--accent)">Open directly</a> to wake it up.</div>
       </div>
     </div>
     <a class="dash-open-btn" href="https://soundpulse-mood.streamlit.app" target="_blank" rel="noopener">Open Mood Intelligence Dashboard ↗</a>
@@ -1370,8 +1370,8 @@
       ></iframe>
       <div id="dash2-fallback" class="dash-fallback" style="display:none">
         <div style="font-size:2.2rem; margin-bottom:12px;">🎵</div>
-        <div style="color:var(--text); font-weight:700; font-size:1rem; margin-bottom:8px;">Dashboard offline</div>
-        <div>Start it with: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#79c0ff;">streamlit run serving/dashboard_trends.py --server.port 8502</code><br>then refresh this page.</div>
+        <div style="color:var(--text); font-weight:700; font-size:1rem; margin-bottom:8px;">Dashboard loading</div>
+        <div>Streamlit Cloud apps sleep after inactivity. <a href="https://soundpulse-trends.streamlit.app" target="_blank" style="color:var(--accent)">Open directly</a> to wake it up.</div>
       </div>
     </div>
     <a class="dash-open-btn" href="https://soundpulse-trends.streamlit.app" target="_blank" rel="noopener">Open Music Trends Dashboard ↗</a>
@@ -2216,23 +2216,16 @@ function probeDashboard(port, frameId, fallbackId, statusId) {
   const fallback = document.getElementById(fallbackId);
   const status   = document.getElementById(statusId);
 
-  // 90-second timeout — Streamlit Cloud apps can take ~60s to wake from sleep
+  if (status) { status.textContent = '🟡 Waking up...'; status.style.color = '#ffd166'; }
+
   const timer = setTimeout(() => {
-    if (frame) frame.style.display = 'none';
-    if (fallback) fallback.style.display = 'block';
-    if (status) { status.textContent = '⚫ Offline — start locally to interact'; status.style.color = 'var(--muted)'; }
-  }, 90000);
+    if (status) { status.textContent = '🟡 Still loading (Streamlit sleeps after inactivity)'; status.style.color = '#ffd166'; }
+  }, 30000);
 
   if (frame) {
     frame.addEventListener('load', () => {
       clearTimeout(timer);
       if (status) { status.textContent = '🟢 Running'; status.style.color = 'var(--peaceful)'; }
-    });
-    frame.addEventListener('error', () => {
-      clearTimeout(timer);
-      if (frame) frame.style.display = 'none';
-      if (fallback) fallback.style.display = 'block';
-      if (status) { status.textContent = '⚫ Offline'; status.style.color = 'var(--muted)'; }
     });
   }
 }
