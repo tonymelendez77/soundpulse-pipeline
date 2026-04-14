@@ -208,8 +208,12 @@ with tab_pred:
         pred_df["avg_confidence"] = pd.to_numeric(pred_df["avg_confidence"], errors="coerce")
 
         # Separate validated history from forward (unvalidated) predictions
-        history_df = pred_df[pred_df["is_forward"] != True].copy()
-        forward_df = pred_df[pred_df["is_forward"] == True].copy()
+        if "is_forward" in pred_df.columns:
+            history_df = pred_df[pred_df["is_forward"] != True].copy()
+            forward_df = pred_df[pred_df["is_forward"] == True].copy()
+        else:
+            history_df = pred_df[pred_df["correct"].notna()].copy()
+            forward_df = pred_df[pred_df["correct"].isna()].copy()
 
         if not pred_df.empty:
             summary = pred_df.iloc[-1]
