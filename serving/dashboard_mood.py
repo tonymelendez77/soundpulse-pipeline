@@ -19,6 +19,8 @@ st.set_page_config(
     layout="wide",
 )
 
+_APP_VERSION = "2026-04-14-v2"
+
 REGIONS = ["global", "north_america", "latin_america"]
 REGION_LABELS = {
     "global": "🌐 Global",
@@ -54,7 +56,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-    st.caption(f"Last loaded: {datetime.now().strftime('%H:%M:%S')}")
+    st.caption(f"Last loaded: {datetime.now().strftime('%H:%M:%S')}  ·  {_APP_VERSION}")
     st.divider()
 
     mood_options = ["All", "aggressive", "euphoric", "melancholic", "peaceful", "groovy"]
