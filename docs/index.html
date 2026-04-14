@@ -1838,8 +1838,11 @@ async function initPrediction() {
   clearLoading('chart-shap');
   renderShap(window._activeRegion || 'global');
 
-  // prediction table
-  const rows = predData.map(d => {
+  // prediction table — separate validated history from forward predictions
+  const history = predData.filter(d => d.correct !== null && d.correct !== undefined);
+  const forward = predData.filter(d => d.correct === null || d.correct === undefined);
+
+  const rows = history.map(d => {
     const cls = d.correct ? 'correct' : 'wrong';
     const conf = (parseFloat(d.confidence)*100).toFixed(0);
     return `
@@ -1852,10 +1855,21 @@ async function initPrediction() {
       </tr>`;
   }).join('');
 
+  const fwdRows = forward.map(d => {
+    const conf = (parseFloat(d.confidence)*100).toFixed(0);
+    return `
+      <tr>
+        <td>${d.week_start}</td>
+        <td>${moodChip(d.predicted_mood)}</td>
+        <td colspan="2" style="color:var(--muted);font-style:italic">awaiting validation</td>
+        <td>${conf}%</td>
+      </tr>`;
+  }).join('');
+
   document.getElementById('pred-table-wrap').innerHTML = `
     <table class="pred-table">
       <thead><tr><th>Week</th><th>Predicted</th><th>Actual</th><th></th><th>Confidence</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${rows}${fwdRows}</tbody>
     </table>`;
 }
 
