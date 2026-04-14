@@ -202,21 +202,24 @@ with tab_shap:
 with tab_pred:
     st.subheader("Prediction History")
     try:
-        pred_df = load_df("/predictions")
+        pred_df = load_df("/predictions", {"region": selected_region})
         pred_df["confidence"] = pd.to_numeric(pred_df["confidence"], errors="coerce")
         pred_df["overall_accuracy"] = pd.to_numeric(pred_df["overall_accuracy"], errors="coerce")
         pred_df["avg_confidence"] = pd.to_numeric(pred_df["avg_confidence"], errors="coerce")
 
+        # Separate validated history from forward (unvalidated) predictions
+        history_df = pred_df[pred_df["is_forward"] != True].copy()
+        forward_df = pred_df[pred_df["is_forward"] == True].copy()
+
         if not pred_df.empty:
             summary = pred_df.iloc[-1]
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Accuracy", f"{float(summary['overall_accuracy']):.0%}")
-            c2.metric("Avg Confidence", f"{float(summary['avg_confidence']):.0%}")
-            c3.metric("Weeks", int(summary["total_weeks"]))
-            c4.metric("Correct", int(summary["correct_predictions"]))
+            c1, c2 = st.columns(2)
+            c1.metric("Weeks Evaluated", int(summary["total_weeks"]))
+            c2.metric("Correct Predictions", int(summary["correct_predictions"]))
 
         st.divider()
-        display = pred_df[["week_start", "predicted_mood", "actual_mood", "correct", "confidence"]].copy()
+        st.markdown("**Per-Week Prediction History**")
+        display = history_df[["week_start", "predicted_mood", "actual_mood", "correct", "confidence"]].copy()
         display["confidence"] = display["confidence"].map(lambda x: f"{float(x):.1%}" if pd.notna(x) else "")
 
         def _style(row):
@@ -224,5 +227,12 @@ with tab_pred:
             return [f"background-color: {color}"] * len(row)
 
         st.dataframe(display.style.apply(_style, axis=1), use_container_width=True, hide_index=True)
+
+        if not forward_df.empty:
+            st.divider()
+            st.markdown("**Current Predictions (awaiting validation)**")
+            fwd_display = forward_df[["week_start", "predicted_mood", "confidence"]].copy()
+            fwd_display["confidence"] = fwd_display["confidence"].map(lambda x: f"{float(x):.1%}" if pd.notna(x) else "")
+            st.dataframe(fwd_display, use_container_width=True, hide_index=True)
     except Exception as e:
         st.error(f"Could not load predictions: {e}")

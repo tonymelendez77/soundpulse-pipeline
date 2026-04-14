@@ -5,6 +5,8 @@ WITH source AS (
 cleaned AS (
     SELECT
         CAST(week_start AS DATE) AS week_start,
+        region,
+        period,
         actual_mood,
         predicted_mood,
         correct,

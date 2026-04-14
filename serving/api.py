@@ -162,18 +162,21 @@ def mood_regional(region: Optional[str] = Query(default=None)):
 
 
 @app.get("/predictions")
-def predictions():
+def predictions(region: Optional[str] = Query(default=None)):
     try:
+        where = f"WHERE region = '{region}'" if region else ""
         rows = _run(f"""
             SELECT
                 CAST(week_start AS STRING) AS week_start,
-                actual_mood, predicted_mood, correct,
+                region, actual_mood, predicted_mood, correct,
                 confidence, anxiety_index, tension_index, positivity_index,
                 total_weeks, correct_predictions, overall_accuracy,
                 avg_confidence,
                 CAST(first_week AS STRING) AS first_week,
-                CAST(last_week AS STRING) AS last_week
+                CAST(last_week AS STRING) AS last_week,
+                is_forward
             FROM `{DATASET}.fct_mood_prediction_summary`
+            {where}
             ORDER BY week_start ASC
         """)
         return rows
