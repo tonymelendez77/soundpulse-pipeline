@@ -43,6 +43,226 @@ HIST_DIR.mkdir(parents=True, exist_ok=True)
 
 REGIONS = ["north_america", "latin_america", "europe", "global"]
 
+# ---------- Prompt-rebuild constants (mirrors ingestion/music_generation.py) ----------
+
+PROMPT_FEATURES = [
+    "tempo", "energy", "valence", "danceability", "acousticness",
+    "key", "mode", "spectral_centroid", "loudness",
+]
+
+MOOD_PREFIXES = {
+    "euphoric": "euphoric pop anthem, celebratory and soaring,",
+    "melancholic": "melancholic indie ballad, introspective and aching,",
+    "aggressive": "aggressive rock, intense and visceral,",
+    "peaceful": "peaceful ambient, meditative and spacious,",
+    "groovy": "groovy funk, smooth and hypnotic,",
+}
+
+BLEND_HINTS = {
+    "euphoric": "with uplifting hooks",
+    "melancholic": "tinged with longing",
+    "aggressive": "with raw intensity",
+    "peaceful": "with spacious restraint",
+    "groovy": "with a rhythmic swagger",
+}
+
+SEASON_TEXTURE = {
+    "winter": "cold, stark, driving",
+    "spring": "fresh, building energy, hopeful",
+    "summer": "sun-drenched, open, vibrant",
+    "autumn": "wistful, cinematic, rich",
+}
+
+MOOD_VALENCE_ENERGY = {
+    "euphoric": (0.80, 0.78),
+    "melancholic": (0.22, 0.32),
+    "aggressive": (0.22, 0.82),
+    "peaceful": (0.75, 0.22),
+    "groovy": (0.65, 0.68),
+}
+
+KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
+def _season_for_date(d: _date) -> str:
+    m = d.month
+    if m in (12, 1, 2):  return "winter"
+    if m in (3, 4, 5):   return "spring"
+    if m in (6, 7, 8):   return "summer"
+    return "autumn"
+
+
+def _build_prompt(primary_mood: str, mood_blend: dict, avg_features: dict,
+                  target_date: _date) -> str:
+    """Rebuild a MusicGen prompt from mood + actual audio features."""
+    season = _season_for_date(target_date)
+    season_desc = SEASON_TEXTURE.get(season, "")
+    prefix = MOOD_PREFIXES.get(primary_mood, f"{primary_mood} music,")
+
+    secondary_flavor = ""
+    for mood, prob in sorted(mood_blend.items(), key=lambda x: -x[1]):
+        if mood == primary_mood or prob < 0.15:
+            continue
+        secondary_flavor = BLEND_HINTS.get(mood, "")
+        break
+
+    canon_valence, canon_energy = MOOD_VALENCE_ENERGY.get(primary_mood, (0.5, 0.5))
+    valence = avg_features.get("valence", canon_valence)
+    energy = avg_features.get("energy", canon_energy)
+
+    tempo = avg_features.get("tempo", 120)
+    if tempo < 90:       tempo_desc = f"slow {tempo:.0f} BPM"
+    elif tempo < 115:    tempo_desc = f"moderate {tempo:.0f} BPM"
+    elif tempo < 140:    tempo_desc = f"driving {tempo:.0f} BPM"
+    else:                tempo_desc = f"frenetic {tempo:.0f} BPM"
+
+    if energy < 0.3:     energy_desc = "hushed and delicate"
+    elif energy < 0.5:   energy_desc = "restrained energy"
+    elif energy < 0.7:   energy_desc = "charged energy"
+    else:                energy_desc = "explosive high energy"
+
+    if valence < 0.25:   valence_desc = "deeply minor key"
+    elif valence < 0.45: valence_desc = "melancholic minor key"
+    elif valence < 0.6:  valence_desc = "bittersweet tonality"
+    else:                valence_desc = "uplifting major key"
+
+    dance = avg_features.get("danceability", 0.5)
+    if dance < 0.3:      dance_desc = "steady rhythmic pulse"
+    elif dance < 0.55:   dance_desc = "rhythmic pulse"
+    elif dance < 0.75:   dance_desc = "locked-in groove"
+    else:                dance_desc = "infectious danceable groove"
+
+    acoustic = avg_features.get("acousticness", 0.3)
+    if acoustic > 0.6:   acoustic_desc = "warm acoustic instrumentation"
+    elif acoustic < 0.2: acoustic_desc = "dense electronic production"
+    else:                acoustic_desc = "hybrid acoustic-electronic"
+
+    key_desc = ""
+    key_val = avg_features.get("key")
+    mode_val = avg_features.get("mode")
+    if key_val is not None and mode_val is not None:
+        key_idx = int(round(key_val)) % 12
+        mode_str = "major" if round(mode_val) == 1 else "minor"
+        key_desc = f"{KEY_NAMES[key_idx]} {mode_str}"
+
+    brightness_desc = ""
+    centroid = avg_features.get("spectral_centroid")
+    if centroid is not None:
+        if centroid < 2000:   brightness_desc = "warm dark timbre"
+        elif centroid < 3500: brightness_desc = "balanced mid-range"
+        else:                 brightness_desc = "bright shimmering highs"
+
+    loud_desc = ""
+    loudness = avg_features.get("loudness")
+    if loudness is not None:
+        if loudness > -5:     loud_desc = "loud and compressed"
+        elif loudness > -10:  loud_desc = "punchy mix"
+        else:                 loud_desc = "dynamic and spacious mix"
+
+    parts = [prefix, f"{season}, {season_desc}", tempo_desc, energy_desc,
+             valence_desc, key_desc, dance_desc, acoustic_desc,
+             brightness_desc, loud_desc]
+    if secondary_flavor:
+        parts.append(secondary_flavor)
+    return ", ".join(p for p in parts if p)
+
+
+def _batch_features(client: bigquery.Client, all_tracks: list[dict]) -> dict:
+    """Query audio features for all similar tracks referenced by generated songs.
+    Returns {(title_lower, artist_lower): {feature: value}}."""
+    all_pairs = set()
+    for t in all_tracks:
+        try:
+            similar = json.loads(t.get("similar_tracks_json") or "[]")
+            for s in similar:
+                title = s.get("title", "").strip().lower()
+                artist = s.get("artist", "").strip().lower()
+                if title and artist:
+                    all_pairs.add((title, artist))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if not all_pairs:
+        return {}
+
+    def _esc(s):
+        return s.replace("\\", "\\\\").replace("'", "\\'")
+
+    conditions = " OR ".join(
+        f"(LOWER(TRIM(title)) = '{_esc(t)}' AND LOWER(TRIM(artist)) = '{_esc(a)}')"
+        for t, a in all_pairs
+    )
+    feat_sql = ", ".join(f"AVG({c}) AS {c}" for c in PROMPT_FEATURES)
+    query = f"""
+        SELECT LOWER(TRIM(title)) AS title_key, LOWER(TRIM(artist)) AS artist_key,
+               {feat_sql}
+        FROM `{PROJECT}.music_analytics.trending_historical`
+        WHERE {conditions}
+        GROUP BY title_key, artist_key
+    """
+    try:
+        rows = list(client.query(query).result())
+    except Exception as e:
+        logger.warning(f"Batch features query failed: {e}")
+        return {}
+
+    lookup = {}
+    for r in rows:
+        key = (str(r["title_key"]), str(r["artist_key"]))
+        lookup[key] = {c: float(r[c]) for c in PROMPT_FEATURES if r[c] is not None}
+    logger.info(f"  Loaded audio features for {len(lookup)} similar tracks")
+    return lookup
+
+
+def _rebuild_prompts(client: bigquery.Client, all_tracks: list[dict]) -> None:
+    """Regenerate prompt_text for every track using actual audio features."""
+    lookup = _batch_features(client, all_tracks)
+
+    rebuilt = 0
+    for t in all_tracks:
+        mood = t.get("mood_archetype", "")
+        if not mood:
+            continue
+
+        try:
+            blend = json.loads(t.get("mood_blend_json") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            blend = {}
+
+        try:
+            similar = json.loads(t.get("similar_tracks_json") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            similar = []
+
+        # Average features from this song's specific similar tracks
+        track_feats = []
+        for s in similar:
+            key = (s.get("title", "").strip().lower(), s.get("artist", "").strip().lower())
+            if key in lookup:
+                track_feats.append(lookup[key])
+
+        if track_feats:
+            avg_features = {}
+            for feat in PROMPT_FEATURES:
+                vals = [f[feat] for f in track_feats if feat in f]
+                avg_features[feat] = sum(vals) / len(vals) if vals else None
+        else:
+            avg_features = {}
+
+        ws = t.get("week_start", "")
+        try:
+            target_date = _date.fromisoformat(ws) if ws else _date.today()
+        except ValueError:
+            target_date = _date.today()
+
+        t["prompt_text"] = _build_prompt(mood, blend, avg_features, target_date)
+        rebuilt += 1
+
+    logger.info(f"  Rebuilt prompts for {rebuilt} tracks")
+
+
+# -------------------------------------------------------------------------
+
 WAV_MAP = {
     "today": "today.wav",
     "weekly": "weekly.wav",
@@ -311,13 +531,15 @@ def update_history(by_region_period: dict) -> None:
 
 
 def export_song_history(client: bigquery.Client) -> None:
-    """Build the song_history.json index from history WAVs and BQ metadata."""
+    """Build the song_history.json index from history WAVs and BQ metadata.
+    Regenerates all prompts from actual audio features so descriptions vary per song."""
     try:
         all_tracks = bq_to_json(client, f"""
             SELECT
                 CAST(week_start AS STRING) AS week_start,
                 region, period,
                 mood_archetype, prompt_text,
+                mood_blend_json, similar_tracks_json,
                 CAST(duration_seconds AS FLOAT64) AS duration_seconds,
                 CAST(generated_at AS STRING) AS generated_at
             FROM `{RAW}.generated_tracks`
@@ -327,6 +549,10 @@ def export_song_history(client: bigquery.Client) -> None:
     except Exception as e:
         logger.warning(f"Could not load generated_tracks for history: {e}")
         all_tracks = []
+
+    # Rebuild all prompts from actual audio features
+    if all_tracks:
+        _rebuild_prompts(client, all_tracks)
 
     history = []
     for wav in sorted(HIST_DIR.glob("*.wav"), reverse=True):
