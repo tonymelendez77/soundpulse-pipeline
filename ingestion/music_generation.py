@@ -341,13 +341,20 @@ MOOD_VALENCE_ENERGY = {
 }
 
 
+KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
 def build_prompt(
     primary_mood: str,
     mood_blend: dict,
     avg_features: dict,
     target_date: date,
 ) -> str:
-    """Build a season-aware MusicGen prompt from mood prediction and audio features."""
+    """Build a season-aware MusicGen prompt from mood prediction and audio features.
+
+    Uses actual audio features from similar tracks so that prompts vary day-to-day
+    rather than being identical for the same mood archetype.
+    """
     season = _season_for_date(target_date)
     season_desc = SEASON_TEXTURE.get(season, "")
     prefix = MOOD_PREFIXES.get(primary_mood, f"{primary_mood} music,")
@@ -360,35 +367,38 @@ def build_prompt(
         secondary_flavor = BLEND_HINTS.get(mood, "")
         break
 
+    # Use actual audio features; fall back to canonical only when missing
     canon_valence, canon_energy = MOOD_VALENCE_ENERGY.get(
         primary_mood, (0.5, 0.5)
     )
+    valence = avg_features.get("valence", canon_valence)
+    energy = avg_features.get("energy", canon_energy)
 
     tempo = avg_features.get("tempo", 120)
     if tempo < 90:
-        tempo_desc = "slow tempo"
+        tempo_desc = f"slow {tempo:.0f} BPM"
     elif tempo < 115:
-        tempo_desc = "moderate tempo"
+        tempo_desc = f"moderate {tempo:.0f} BPM"
     elif tempo < 140:
         tempo_desc = f"driving {tempo:.0f} BPM"
     else:
         tempo_desc = f"frenetic {tempo:.0f} BPM"
 
-    if canon_energy < 0.3:
+    if energy < 0.3:
         energy_desc = "hushed and delicate"
-    elif canon_energy < 0.5:
+    elif energy < 0.5:
         energy_desc = "restrained energy"
-    elif canon_energy < 0.7:
+    elif energy < 0.7:
         energy_desc = "charged energy"
     else:
         energy_desc = "explosive high energy"
 
-    if canon_valence < 0.25:
-        valence_desc = "deeply minor key, anguished"
-    elif canon_valence < 0.45:
+    if valence < 0.25:
+        valence_desc = "deeply minor key"
+    elif valence < 0.45:
         valence_desc = "melancholic minor key"
-    elif canon_valence < 0.6:
-        valence_desc = "bittersweet"
+    elif valence < 0.6:
+        valence_desc = "bittersweet tonality"
     else:
         valence_desc = "uplifting major key"
 
@@ -410,14 +420,48 @@ def build_prompt(
     else:
         acoustic_desc = "hybrid acoustic-electronic"
 
+    # Key signature from similar tracks
+    key_desc = ""
+    key_val = avg_features.get("key")
+    mode_val = avg_features.get("mode")
+    if key_val is not None and mode_val is not None:
+        key_idx = int(round(key_val)) % 12
+        mode_str = "major" if round(mode_val) == 1 else "minor"
+        key_desc = f"{KEY_NAMES[key_idx]} {mode_str}"
+
+    # Spectral brightness
+    brightness_desc = ""
+    centroid = avg_features.get("spectral_centroid")
+    if centroid is not None:
+        if centroid < 2000:
+            brightness_desc = "warm dark timbre"
+        elif centroid < 3500:
+            brightness_desc = "balanced mid-range"
+        else:
+            brightness_desc = "bright shimmering highs"
+
+    # Loudness character
+    loud_desc = ""
+    loudness = avg_features.get("loudness")
+    if loudness is not None:
+        if loudness > -5:
+            loud_desc = "loud and compressed"
+        elif loudness > -10:
+            loud_desc = "punchy mix"
+        else:
+            loud_desc = "dynamic and spacious mix"
+
     parts = [
         prefix,
         f"{season}, {season_desc}",
         tempo_desc,
         energy_desc,
         valence_desc,
+        key_desc,
         dance_desc,
         acoustic_desc,
+        brightness_desc,
+        loud_desc,
     ]
     if secondary_flavor:
         parts.append(secondary_flavor)
