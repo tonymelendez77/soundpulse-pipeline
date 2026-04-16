@@ -1,7 +1,4 @@
-"""
-Librosa audio feature extraction with PARALLEL processing and CACHING
-Extracts 30 features from iTunes preview URLs (30-second .m4a clips)
-"""
+"""Librosa audio feature extraction from iTunes previews."""
 
 import pandas as pd
 import numpy as np
@@ -25,14 +22,14 @@ CACHE_FILE = "C:/Users/tony_/OneDrive/Documents/soundpulse-pulseiq/librosa_cache
 
 
 def load_cache():
-    """Load cached audio features from disk"""
+    """Load feature cache from disk."""
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, 'r', encoding='utf-8') as f:
                 cache = json.load(f)
             logger.info(f"Cache loaded: {len(cache)} cached tracks")
             return cache
-        except:
+        except Exception:
             logger.warning("Cache file corrupted, starting fresh")
             return {}
     else:
@@ -41,7 +38,7 @@ def load_cache():
 
 
 def save_cache(cache):
-    """Save cache to disk"""
+    """Persist feature cache."""
     try:
         with open(CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(cache, f, indent=2, ensure_ascii=False)
@@ -51,13 +48,13 @@ def save_cache(cache):
 
 
 def get_cache_key(title, artist, preview_url):
-    """Generate unique cache key for a track"""
+    """MD5 cache key for a track."""
     key_str = f"{title}|{artist}|{preview_url}"
     return hashlib.md5(key_str.encode('utf-8')).hexdigest()
 
 
 def download_audio(preview_url):
-    """Download audio from URL and convert to WAV"""
+    """Download and convert preview to WAV."""
     try:
         response = requests.get(preview_url, timeout=15)
         response.raise_for_status()
@@ -83,7 +80,7 @@ def download_audio(preview_url):
 
 
 def extract_features_from_audio(wav_path):
-    """Extract 30 audio features from WAV file using Librosa"""
+    """Extract 30 audio features from a WAV file."""
     try:
         y, sr = librosa.load(wav_path, sr=None)
         
@@ -198,7 +195,7 @@ def extract_features_from_audio(wav_path):
 
 
 def process_single_track(args):
-    """Process a single track (for parallel execution)"""
+    """Extract features for one track."""
     idx, row, cache = args
     
     title = row.get('title', 'Unknown')
@@ -228,7 +225,7 @@ def process_single_track(args):
 
 
 def enrich_with_librosa_features(df):
-    """Main function: Enrich DataFrame with Librosa features (PARALLEL + CACHE)"""
+    """Add Librosa features to the given DataFrame."""
     
     logger.info(f"Extracting 30 audio features for {len(df)} tracks (PARALLEL + CACHE)")
     

@@ -1,10 +1,4 @@
-"""
-SoundPulse - Historical Backfill
-- Guardian news: daily, 3 months x 8 topics -> news_historical
-- Billboard charts: weekly, 13 weeks x 10 charts -> trending_historical
-- iTunes + Librosa: audio features for all unique Billboard songs
-One-time run. Parallelized Guardian fetching.
-"""
+"""Historical backfill for news and chart data."""
 
 import os
 import re
@@ -128,9 +122,6 @@ TRENDING_SCHEMA = [
 ]
 
 
-# ============================================================
-# HELPERS
-# ============================================================
 
 def clean_record(record: dict) -> dict:
     cleaned = {}
@@ -153,7 +144,7 @@ def upload_to_gcs(records: list, filename: str, prefix: str):
     bucket = client.bucket(BUCKET)
     blob   = bucket.blob(f"{prefix}/{filename}.jsonl")
     blob.upload_from_filename(jsonl_path)
-    logger.info(f"[OK] Uploaded gs://{BUCKET}/{prefix}/{filename}.jsonl ({len(records)} records)")
+    logger.info(f"Uploaded gs://{BUCKET}/{prefix}/{filename}.jsonl ({len(records)} records)")
 
 
 def load_to_bigquery(client, records: list, table_id: str, schema: list):
@@ -174,12 +165,9 @@ def load_to_bigquery(client, records: list, table_id: str, schema: list):
     with open(jsonl_path, "rb") as f:
         job = client.load_table_from_file(f, full_table, job_config=job_config)
         job.result()
-    logger.info(f"[OK] Loaded {len(records)} rows into {full_table}")
+    logger.info(f"Loaded {len(records)} rows into {full_table}")
 
 
-# ============================================================
-# PHASE 1: GUARDIAN DAILY NEWS (PARALLEL)
-# ============================================================
 
 def fetch_guardian_topic(date_str: str, item: dict, ingested_at: str) -> list[dict]:
     try:
@@ -255,13 +243,10 @@ def run_news_backfill(existing_dates: set) -> list[dict]:
     if batch:
         upload_to_gcs(batch, "news_historical_batch_final", "raw/historical/news")
 
-    logger.info(f"[OK] News backfill complete: {len(all_articles)} articles")
+    logger.info(f"News backfill done: {len(all_articles)} articles")
     return all_articles
 
 
-# ============================================================
-# PHASE 2: BILLBOARD WEEKLY CHARTS
-# ============================================================
 
 def fetch_billboard_week(date_str: str, week_number: int) -> list[dict]:
     songs       = []
@@ -309,13 +294,10 @@ def run_billboard_backfill(existing_weeks: set) -> list[dict]:
         logger.info(f"Fetching week {week_index}/{total_weeks}: {date_str}")
         songs = fetch_billboard_week(date_str, week_index)
         all_songs.extend(songs)
-    logger.info(f"[OK] Billboard backfill complete: {len(all_songs)} chart entries")
+    logger.info(f"Billboard backfill done: {len(all_songs)} chart entries")
     return all_songs
 
 
-# ============================================================
-# PHASE 3: ITUNES MATCHING + LIBROSA
-# ============================================================
 
 def normalize_text(text):
     if not text:
@@ -531,13 +513,9 @@ def run_audio_backfill(billboard_songs: list) -> list:
     return result
 
 
-# ============================================================
-# GAP DETECTION — fetch the set of already-collected dates/weeks
-# ============================================================
 
 def get_existing_news_dates(client: bigquery.Client) -> set:
-    """Return the set of date strings already in news_historical (e.g. '2025-10-06').
-    Used to skip dates we already have, wherever they fall in the timeline."""
+    """Dates already present in news_historical."""
     try:
         rows = list(client.query(
             f"SELECT DISTINCT date FROM `{PROJECT}.{DATASET}.news_historical`"
@@ -551,8 +529,7 @@ def get_existing_news_dates(client: bigquery.Client) -> set:
 
 
 def get_existing_music_weeks(client: bigquery.Client) -> set:
-    """Return the set of week_start strings already in trending_historical (e.g. '2025-12-29').
-    Used to skip weeks we already have, wherever they fall in the timeline."""
+    """Weeks already present in trending_historical."""
     try:
         rows = list(client.query(
             f"SELECT DISTINCT week_start FROM `{PROJECT}.{DATASET}.trending_historical`"
@@ -565,9 +542,6 @@ def get_existing_music_weeks(client: bigquery.Client) -> set:
         return set()
 
 
-# ============================================================
-# MAIN
-# ============================================================
 
 def main():
     print("=" * 60)
@@ -583,10 +557,10 @@ def main():
         full_table = f"{PROJECT}.{DATASET}.{table_id}"
         try:
             bq_client.get_table(full_table)
-            logger.info(f"[OK] Table exists, will append: {full_table}")
+            logger.info(f"Table exists, appending: {full_table}")
         except Exception:
             bq_client.create_table(bigquery.Table(full_table, schema=schema))
-            logger.info(f"[OK] Created {full_table}")
+            logger.info(f"Created {full_table}")
 
     # -- Smart resume: load existing date/week sets, skip what's already in BQ ─
     print("\n[1b/6] Scanning existing data in BQ...")
@@ -611,7 +585,7 @@ def main():
     else:
         print("\n[2/6] Fetching Guardian historical news (missing dates only)...")
         news_articles = run_news_backfill(existing_news_dates)
-        print(f"[OK] New news articles fetched: {len(news_articles)}")
+        print(f"News articles fetched: {len(news_articles)}")
 
     if SKIP_MUSIC:
         print("\n[3/6] SKIP_MUSIC=True — skipping Billboard fetch.")
@@ -619,12 +593,12 @@ def main():
     else:
         print("\n[3/6] Fetching Billboard historical charts (missing weeks only)...")
         billboard_songs = run_billboard_backfill(existing_music_weeks)
-        print(f"[OK] New Billboard entries fetched: {len(billboard_songs)}")
+        print(f"Billboard entries fetched: {len(billboard_songs)}")
 
     if billboard_songs:
         print("\n[4/6] iTunes matching + Librosa audio features...")
         enriched_songs = run_audio_backfill(billboard_songs)
-        print(f"[OK] Enriched songs: {len(enriched_songs)}")
+        print(f"Enriched songs: {len(enriched_songs)}")
     else:
         print("\n[4/6] No new Billboard songs — skipping Librosa.")
         enriched_songs = []
@@ -641,7 +615,7 @@ def main():
     if enriched_songs:
         load_to_bigquery(bq_client, enriched_songs, "trending_historical", TRENDING_SCHEMA)
 
-    print("\n[OK] Verification:")
+    print("\nVerification:")
     for table_id in ["news_historical", "trending_historical"]:
         rows = list(bq_client.query(
             f"SELECT COUNT(*) as cnt FROM {PROJECT}.{DATASET}.{table_id}"

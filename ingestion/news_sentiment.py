@@ -1,16 +1,4 @@
-"""
-SoundPulse — Module 12, Layer 1
-News Sentiment Classification using DistilRoBERTa
-
-Model: j-hartmann/emotion-english-distilroberta-base
-Labels: anger, disgust, fear, joy, neutral, sadness, surprise
-Input:  music_analytics.news_historical  (6,348 rows, 83 days, 8 topics)
-Output: music_analytics.news_sentiment   (per-article emotions)
-        music_analytics.news_sentiment_weekly (aggregated by week + topic)
-
-Install first:
-    pip install transformers torch
-"""
+"""News emotion classification with DistilRoBERTa."""
 
 import math
 import time

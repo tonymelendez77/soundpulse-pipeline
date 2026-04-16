@@ -1,7 +1,4 @@
-"""
-M10: KMeans clustering on 30 audio features from trending_historical.
-Outputs per-track clusters + weekly/regional mood aggregates.
-"""
+"""KMeans mood clustering on audio features."""
 
 import io
 import json

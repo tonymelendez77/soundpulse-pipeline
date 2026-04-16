@@ -11,7 +11,7 @@ def upload_to_gcs(data, source_name, bucket_name='soundpulse-prod-raw-lake'):
             credentials=gcp_credentials.get_credentials_from_service_account(),
             project='soundpulse-production'
         )
-    except:
+    except Exception:
         client = storage.Client(project='soundpulse-production')
     
     bucket = client.bucket(bucket_name)
@@ -29,5 +29,5 @@ def upload_to_gcs(data, source_name, bucket_name='soundpulse-prod-raw-lake'):
     jsonl_content = '\n'.join([json.dumps(record, ensure_ascii=False) for record in records])
     blob.upload_from_string(jsonl_content, content_type='application/json')
     
-    print(f"[OK] Uploaded {len(records)} records to gs://{bucket_name}/{filename}")
+    print(f"Uploaded {len(records)} records to gs://{bucket_name}/{filename}")
     return filename

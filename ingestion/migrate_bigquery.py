@@ -1,7 +1,4 @@
-"""
-SoundPulse - BigQuery Schema Migration + GCS Loader
-Table: trending_tracks (renamed from spotify_tracks)
-"""
+"""BigQuery schema migration for trending_tracks."""
 
 from google.cloud import bigquery, storage
 from datetime import datetime
@@ -74,15 +71,15 @@ def migrate_table(client):
     # Drop old spotify_tracks if exists
     old_table = f"{PROJECT}.{DATASET}.spotify_tracks"
     client.delete_table(old_table, not_found_ok=True)
-    print("[OK] Old spotify_tracks table dropped")
+    print("Old spotify_tracks table dropped")
 
     # Drop and recreate trending_tracks
     client.delete_table(FULL_TABLE, not_found_ok=True)
-    print("[OK] Old trending_tracks table dropped")
+    print("Old trending_tracks table dropped")
 
     table = bigquery.Table(FULL_TABLE, schema=SCHEMA)
     client.create_table(table)
-    print(f"[OK] New trending_tracks table created with {len(SCHEMA)} columns")
+    print(f"New trending_tracks table created with {len(SCHEMA)} columns")
 
 
 def get_latest_gcs_file(storage_client):
@@ -91,7 +88,7 @@ def get_latest_gcs_file(storage_client):
     if not blobs:
         raise FileNotFoundError("No trending_tracks JSONL files found in GCS")
     latest = sorted(blobs, key=lambda b: b.name)[-1]
-    print(f"[OK] Latest GCS file: {latest.name}")
+    print(f"Latest GCS file: {latest.name}")
     return latest.name
 
 
@@ -107,7 +104,7 @@ def load_gcs_to_bigquery(client, gcs_file):
     load_job = client.load_table_from_uri(uri, FULL_TABLE, job_config=job_config)
     load_job.result()
     table = client.get_table(FULL_TABLE)
-    print(f"[OK] Loaded {table.num_rows} rows into {FULL_TABLE}")
+    print(f"Loaded {table.num_rows} rows into {FULL_TABLE}")
 
 
 def main():

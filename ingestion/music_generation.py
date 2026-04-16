@@ -1,7 +1,4 @@
-"""
-SoundPulse Module 13, Layer 2 - MusicGen audio generation pipeline.
-Generates mood-based audio from XGBoost predictions + Pinecone similarity search.
-"""
+"""MusicGen audio generation from predicted mood profiles."""
 
 import json
 import math

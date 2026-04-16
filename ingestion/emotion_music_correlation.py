@@ -1,7 +1,4 @@
-"""
-Correlates news emotion scores with audio mood distributions per region,
-then writes a joined weekly features table for downstream modeling.
-"""
+"""Weekly emotion-mood correlation and feature table builder."""
 
 import io
 import json

@@ -1,10 +1,4 @@
-"""
-SoundPulse Unified Pipeline - Module 10 (Redesigned)
-Sources: Billboard + iTunes Charts + Last.fm
-Filters: Release date > 30 days + Artist newness + Cross-platform
-8-layer matching system with duration constraints
-Sentiment: Reddit + News + YouTube saved separately
-"""
+"""Unified trending pipeline with multi-source matching."""
 
 import math
 import pandas as pd
@@ -17,7 +11,6 @@ from pathlib import Path
 from difflib import SequenceMatcher
 from google.cloud import bigquery, storage
 
-# Import modules
 from itunes_ingestion import fetch_all_itunes_charts, search_itunes_tracks
 from lastfm_ingestion import run_lastfm_ingestion
 from billboard_ingestion import run_billboard_ingestion
@@ -27,30 +20,23 @@ from youtube_ingestion import run_youtube_ingestion
 from reddit_ingestion import run_reddit_ingestion
 from news_ingestion import run_news_ingestion
 
-# BigQuery config
 PROJECT = "soundpulse-production"
 DATASET = "music_analytics"
 
-# TEST MODE
 TEST_MODE = True
 
-# Filter thresholds
 RELEASE_AGE_MIN_DAYS = 30
 ARTIST_NEWNESS_DAYS  = 14
 CROSS_PLATFORM_MIN   = 2
 
-# Paths
 BASE_DIR        = Path(__file__).parent.parent
 DIAGNOSTIC_FILE = BASE_DIR / "diagnostic_matching_results.json"
 BUCKET_NAME     = "soundpulse-prod-raw-lake"
 
 
-# ============================================================
-# SHARED CLEANER
-# ============================================================
 
 def clean_record(record: dict) -> dict:
-    """Replace NaN, Inf, and None-like floats with None for JSON safety."""
+    """Sanitize record values for JSON serialization."""
     cleaned = {}
     for k, v in record.items():
         if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
@@ -62,12 +48,9 @@ def clean_record(record: dict) -> dict:
     return cleaned
 
 
-# ============================================================
-# FILTER FUNCTIONS
-# ============================================================
 
 def apply_release_date_filter(df: pd.DataFrame, date_col: str = "release_date") -> pd.DataFrame:
-    """Filter 1: Remove songs released less than 30 days ago."""
+    """Drop tracks released in the last 30 days."""
     if date_col not in df.columns:
         return df
 
@@ -90,7 +73,7 @@ def apply_release_date_filter(df: pd.DataFrame, date_col: str = "release_date") 
 
 
 def apply_artist_newness_filter(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter 2: Remove all songs by artists who released anything in last 14 days."""
+    """Drop tracks from artists with recent releases."""
     if "release_date" not in df.columns:
         return df
 
@@ -116,7 +99,7 @@ def apply_artist_newness_filter(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def apply_cross_platform_filter(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter 3: Keep only songs appearing on 2+ platforms."""
+    """Keep tracks on 2+ platforms."""
     def normalize(text):
         if pd.isna(text):
             return ""
@@ -136,9 +119,6 @@ def apply_cross_platform_filter(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ============================================================
-# 8-LAYER MATCHING
-# ============================================================
 
 def match_to_itunes(source_df, itunes_df):
     matched     = []
@@ -176,7 +156,7 @@ def match_to_itunes(source_df, itunes_df):
             itunes_by_letter[first_letter] = []
         itunes_by_letter[first_letter].append(row)
 
-    print(f"\n[OK] Starting 8-layer matching for {len(source_df)} tracks...")
+    print(f"\nStarting 8-layer matching for {len(source_df)} tracks...")
 
     for idx, source_row in source_df.iterrows():
         bb_title_norm  = normalize_text(source_row['title'])
@@ -356,7 +336,7 @@ def match_to_itunes(source_df, itunes_df):
         else:
             unmatched.append(source_row.to_dict())
 
-    print("\n[OK] Matching complete:")
+    print("\nMatching complete:")
     for layer, count in match_stats.items():
         if count > 0:
             print(f"  {layer}: {count} matches ({count/len(source_df)*100:.1f}%)")
@@ -375,9 +355,6 @@ def match_to_itunes(source_df, itunes_df):
     return matched_df, pd.DataFrame(unmatched)
 
 
-# ============================================================
-# HELPERS
-# ============================================================
 
 def save_diagnostic_json(matched_df, unmatched_df):
     matched_records   = [clean_record(r) for r in matched_df.to_dict('records')]
@@ -402,7 +379,7 @@ def save_diagnostic_json(matched_df, unmatched_df):
 
     with open(DIAGNOSTIC_FILE, 'w', encoding='utf-8') as f:
         json.dump(diagnostic_data, f, indent=2, ensure_ascii=True, default=str)
-    print(f"[OK] Diagnostic JSON saved: {DIAGNOSTIC_FILE}")
+    print(f"Diagnostic JSON saved: {DIAGNOSTIC_FILE}")
 
 
 def upload_to_gcs(data, filename, prefix="raw"):
@@ -420,15 +397,12 @@ def upload_to_gcs(data, filename, prefix="raw"):
     bucket = client.bucket(BUCKET_NAME)
     blob   = bucket.blob(f"{prefix}/{filename}.jsonl")
     blob.upload_from_filename(jsonl_path)
-    print(f"[OK] Uploaded to GCS: gs://{BUCKET_NAME}/{prefix}/{filename}.jsonl")
+    print(f"Uploaded to GCS: gs://{BUCKET_NAME}/{prefix}/{filename}.jsonl")
 
 
-# ============================================================
-# SMART RESUME — gap detection + backfill for missed pipeline runs
-# ============================================================
 
 def _gcs_files_for_date(gcs_client: storage.Client, prefix: str, date_compact: str) -> list:
-    """Return GCS blobs whose name contains the compact date string (YYYYMMDD)."""
+    """List GCS blobs matching a date."""
     try:
         bucket = gcs_client.bucket(BUCKET_NAME)
         return [b for b in bucket.list_blobs(prefix=prefix) if date_compact in b.name]
@@ -438,8 +412,7 @@ def _gcs_files_for_date(gcs_client: storage.Client, prefix: str, date_compact: s
 
 def get_missing_dates(gcs_client: storage.Client, gcs_prefix: str,
                       days_back: int = 7) -> list[str]:
-    """Return YYYY-MM-DD strings for days in the last N days with no GCS file.
-    Used to detect missed pipeline runs."""
+    """Find dates with missing GCS data."""
     today   = datetime.now(tz=timezone.utc).date()
     missing = []
     for i in range(1, days_back + 1):
@@ -454,8 +427,7 @@ def get_missing_dates(gcs_client: storage.Client, gcs_prefix: str,
 
 
 def backfill_gaps(gcs_client: storage.Client, missing_dates: list[str]) -> None:
-    """For each missing date, re-fetch Billboard, News, and Reddit data and upload to GCS.
-    YouTube/iTunes/Last.fm are current-only and cannot be backfilled."""
+    """Re-fetch missed dates for Billboard, News, Reddit."""
     if not missing_dates:
         return
 
@@ -493,9 +465,6 @@ def backfill_gaps(gcs_client: storage.Client, missing_dates: list[str]) -> None:
             print(f"[smart-resume] Reddit backfill failed for {date_str}: {e}")
 
 
-# ============================================================
-# MAIN PIPELINE
-# ============================================================
 
 def main():
     print("=" * 60)
@@ -523,7 +492,6 @@ def main():
     missing_dates = get_missing_dates(gcs_client, "raw/trending_tracks_", days_back=7)
     backfill_gaps(gcs_client, missing_dates)
 
-# STEP 1: Fetch all trending sources
     if charts_already_done:
         print("\n[1-4/9] Charts already fetched today — loading from GCS skipped, using empty frames.")
         itunes_charts_df    = pd.DataFrame(columns=["title","artist","release_date","genre","source","country_code","chart_rank"])
@@ -538,24 +506,23 @@ def main():
         print("\n[1/9] Fetching iTunes charts (10 countries)...")
         itunes_charts_df           = fetch_all_itunes_charts()
         itunes_charts_df["source"] = "itunes_chart"
-        print(f"[OK] iTunes: {len(itunes_charts_df)} songs")
+        print(f"iTunes: {len(itunes_charts_df)} songs")
 
         print("\n[2/9] Fetching Last.fm charts (10 countries + global)...")
         lastfm_df           = run_lastfm_ingestion()
         lastfm_df["source"] = "lastfm_chart"
-        print(f"[OK] Last.fm: {len(lastfm_df)} songs")
+        print(f"Last.fm: {len(lastfm_df)} songs")
 
         print("\n[3/9] Fetching Billboard charts...")
         billboard_df           = run_billboard_ingestion()
         billboard_df["source"] = "billboard_chart"
-        print(f"[OK] Billboard: {len(billboard_df)} songs")
+        print(f"Billboard: {len(billboard_df)} songs")
 
         print("\n[4/9] Fetching YouTube trending music (10 countries)...")
         youtube_trending_df           = run_youtube_ingestion()
         youtube_trending_df["source"] = "youtube_chart"
-        print(f"[OK] YouTube: {len(youtube_trending_df)} videos")
+        print(f"YouTube: {len(youtube_trending_df)} videos")
 
-    # STEP 2: Combine into master list
     print("\n[6/9] Building master trending list...")
 
     itunes_cols = itunes_charts_df[["title", "artist", "release_date", "genre", "source", "country_code", "chart_rank"]].copy()
@@ -588,21 +555,19 @@ def main():
     youtube_cols["playcount"]    = None
 
     master_df = pd.concat([itunes_cols, lastfm_cols, billboard_cols, youtube_cols], ignore_index=True)
-    print(f"[OK] Master list before filters: {len(master_df)} rows")
+    print(f"Master list before filters: {len(master_df)} rows")
 
-    # STEP 3: Apply filters
     print("\n[7/9] Applying filters...")
     master_df     = apply_release_date_filter(master_df, date_col="release_date")
     master_df     = apply_artist_newness_filter(master_df)
     master_df     = apply_cross_platform_filter(master_df)
     unique_tracks = master_df.drop_duplicates(subset=["title", "artist"]).copy()
-    print(f"[OK] Unique tracks after filters: {len(unique_tracks)}")
+    print(f"Unique tracks after filters: {len(unique_tracks)}")
 
     if TEST_MODE:
         unique_tracks = unique_tracks.head(30).copy()
         print(f"[TEST MODE] Processing first 30 tracks only")
 
-    # STEP 4: Get iTunes preview URLs
     print("\n[7/9] Fetching iTunes preview URLs...")
     unique_artists        = unique_tracks["artist"].unique()[:100]
     itunes_search_results = []
@@ -610,9 +575,8 @@ def main():
         tracks = search_itunes_tracks(artist, limit=15)
         itunes_search_results.extend(tracks)
     itunes_search_df = pd.DataFrame(itunes_search_results).drop_duplicates(subset=["itunes_track_id"]) if itunes_search_results else pd.DataFrame()
-    print(f"[OK] iTunes search catalog: {len(itunes_search_df)} tracks")
+    print(f"iTunes search catalog: {len(itunes_search_df)} tracks")
 
-    # STEP 5: 8-layer matching
     print("\n[9/9] Matching trending songs to iTunes previews...")
     if itunes_search_df.empty:
         print("[WARN] No iTunes search results — skipping matching")
@@ -623,32 +587,27 @@ def main():
 
     save_diagnostic_json(matched_df, unmatched_df if not unmatched_df.empty else pd.DataFrame())
 
-    # STEP 6: Spotify metadata enrichment
     print("\nEnriching with Spotify metadata...")
     matched_df = enrich_with_spotify_metadata(matched_df)
     matched_df["ingested_at"] = datetime.now(tz=timezone.utc).isoformat()
 
-    # STEP 7: Librosa audio features
     print("\nExtracting Librosa audio features...")
     enriched_df = enrich_with_librosa_features(matched_df)
-    print(f"[OK] Enriched tracks: {len(enriched_df)}")
+    print(f"Enriched tracks: {len(enriched_df)}")
 
-# STEP 8: Upload trending tracks to GCS
     print("\nUploading trending tracks to GCS...")
     upload_to_gcs(enriched_df, f"trending_tracks_{timestamp}", prefix="raw")
 
-    # STEP 9: Upload YouTube trending to GCS
     print("\nUploading YouTube trending to GCS...")
     upload_to_gcs(youtube_trending_df, f"youtube_{timestamp}", prefix="raw/trending")
 
-    # STEP 10: Fetch and upload sentiment sources
     print("\nFetching sentiment sources...")
 
     print("  Fetching Reddit posts...")
     try:
         reddit_posts = run_reddit_ingestion()
         upload_to_gcs(reddit_posts, f"reddit_{timestamp}", prefix="raw/sentiment")
-        print(f"  [OK] Reddit: {len(reddit_posts)} posts")
+        print(f"  Reddit: {len(reddit_posts)} posts")
     except Exception as e:
         print(f"  [WARN] Reddit failed: {e}")
 
@@ -656,7 +615,7 @@ def main():
     try:
         news_df = run_news_ingestion()
         upload_to_gcs(news_df, f"news_{timestamp}", prefix="raw/sentiment")
-        print(f"  [OK] News: {len(news_df)} articles")
+        print(f"  News: {len(news_df)} articles")
     except Exception as e:
         print(f"  [WARN] News failed: {e}")
 

@@ -1,16 +1,4 @@
-"""
-SoundPulse — Module 13, Layer 1
-Pinecone Vector Index Builder
-
-Joins trending_historical + audio_mood_clusters to get ~874 unique tracks
-with all 30 Librosa features + mood archetypes, fits a StandardScaler,
-persists scaler params, and upserts into Pinecone.
-
-Run once to build the index; re-runs are idempotent (upsert).
-
-Install first:
-    pip install "pinecone-client>=3.0,<4.0"
-"""
+"""Pinecone vector index builder for track similarity search."""
 
 import hashlib
 import json
@@ -47,11 +35,7 @@ FEATURE_COLS = [
 # BQ queries
 
 def fetch_historical_tracks(client: bigquery.Client) -> pd.DataFrame:
-    """
-    JOIN trending_historical + audio_mood_clusters.
-    Deduplicates to one row per unique title+artist (latest week_start wins).
-    Returns ~874 rows with 30 features + mood_archetype.
-    """
+    """Fetch deduped historical tracks with mood archetypes."""
     feature_cols_sql = ",\n    ".join(f"h.{c}" for c in FEATURE_COLS)
     query = f"""
         SELECT
@@ -78,10 +62,7 @@ def fetch_historical_tracks(client: bigquery.Client) -> pd.DataFrame:
 
 
 def fetch_trending_tracks(client: bigquery.Client) -> pd.DataFrame:
-    """
-    Pull current 137 tracks from trending_tracks.
-    No mood_archetype — will be assigned by nearest centroid after scaling.
-    """
+    """Fetch current trending tracks from BigQuery."""
     feature_cols_sql = ", ".join(FEATURE_COLS)
     query = f"""
         SELECT title, artist, source AS chart_name, {feature_cols_sql}
@@ -120,10 +101,7 @@ def assign_mood_by_centroid(
     X_scaled: np.ndarray,
     centroids: dict[str, np.ndarray],
 ) -> list[str]:
-    """
-    For each row in X_scaled, compute cosine similarity to each mood centroid
-    and return the name of the nearest one.
-    """
+    """Assign mood archetype by nearest centroid."""
     archetype_names = list(centroids.keys())
     centroid_matrix = np.stack([centroids[a] for a in archetype_names])  # (n_archetypes, 30)
 
@@ -139,7 +117,7 @@ def assign_mood_by_centroid(
 # Pinecone
 
 def track_id(title: str, artist: str) -> str:
-    """MD5 hash of 'lower(title)|lower(artist)' — matches dbt stg_trending_historical."""
+    """Stable track ID from title+artist."""
     key = f"{title.lower().strip()}|{artist.lower().strip()}"
     return hashlib.md5(key.encode()).hexdigest()
 

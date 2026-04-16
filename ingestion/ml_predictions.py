@@ -1,8 +1,4 @@
-"""
-XGBoost + SHAP mood predictor. Trains per-region models on weekly_features
-to predict next week's dominant audio mood from news emotion scores,
-mood percentages, and temporal features. Outputs predictions and SHAP importance.
-"""
+"""XGBoost mood predictor with SHAP feature importance."""
 
 import json
 import math

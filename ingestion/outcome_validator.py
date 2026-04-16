@@ -1,17 +1,4 @@
-"""
-SoundPulse — Outcome Validator (Feedback Loop Layer)
-Runs daily BEFORE ml_predictions.py.
-
-For every forward-inference prediction (period IS NOT NULL) older than 7 days
-whose `correct` field is still NULL, it looks up the actual dominant_mood from
-audio_mood_weekly for that week and writes the result back to ml_predictions.
-
-This closes the prediction loop:
-  Predict → week passes → validate → feed accuracy back into next training run
-
-Also writes a rolling accuracy table (prediction_accuracy) so the site can show
-a real, up-to-date accuracy trend instead of a static number.
-"""
+"""Validates past predictions against actual mood outcomes."""
 
 import json
 from datetime import date, datetime, timedelta, timezone
@@ -45,8 +32,7 @@ def ensure_acc_table(client: bigquery.Client) -> None:
 
 
 def fetch_unvalidated_predictions(client: bigquery.Client) -> list[dict]:
-    """Return forward-inference rows (period IS NOT NULL) older than 7 days
-    whose `correct` is still NULL — these need outcome validation."""
+    """Get predictions older than 7 days that haven't been validated."""
     cutoff = (date.today() - timedelta(days=7)).isoformat()
     query = f"""
         SELECT
@@ -68,8 +54,7 @@ def fetch_unvalidated_predictions(client: bigquery.Client) -> list[dict]:
 
 
 def fetch_actual_mood(client: bigquery.Client, week_start: str) -> str | None:
-    """Look up the actual dominant_mood from audio_mood_weekly for a given week.
-    Averages across all chart sources for that week."""
+    """Look up the dominant mood for a given week."""
     query = f"""
         SELECT dominant_mood, COUNT(*) AS n
         FROM `{MOOD_TABLE}`
@@ -89,7 +74,7 @@ def update_correct_in_predictions(client: bigquery.Client,
                                    period: str,
                                    predicted_mood: str,
                                    actual_mood: str) -> None:
-    """UPDATE ml_predictions to fill in actual_mood and correct for a validated row."""
+    """Mark a prediction as correct or incorrect."""
     correct = predicted_mood == actual_mood
     query = f"""
         UPDATE `{PRED_TABLE}`
@@ -108,7 +93,7 @@ def update_correct_in_predictions(client: bigquery.Client,
 
 
 def compute_rolling_accuracy(client: bigquery.Client, weeks: int = 8) -> dict:
-    """Return rolling accuracy stats across the last N weeks of validated predictions."""
+    """Compute rolling accuracy over the last N weeks."""
     cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
     query = f"""
         SELECT
@@ -134,7 +119,7 @@ def compute_rolling_accuracy(client: bigquery.Client, weeks: int = 8) -> dict:
 def write_accuracy_rows(client: bigquery.Client,
                          validated: list[dict],
                          rolling: dict) -> None:
-    """Append validated outcomes to prediction_accuracy table."""
+    """Write validated outcomes to prediction_accuracy."""
     if not validated:
         return
     now_ts = datetime.now(timezone.utc).isoformat()
@@ -159,7 +144,7 @@ def write_accuracy_rows(client: bigquery.Client,
 
 
 def run_outcome_validation() -> dict:
-    """Main entry point. Returns summary dict with validation results."""
+    """Run prediction validation loop."""
     client = bigquery.Client(project=PROJECT)
     ensure_acc_table(client)
 
