@@ -93,7 +93,7 @@ def _season_for_date(d: _date) -> str:
 
 
 def _build_prompt(primary_mood: str, mood_blend: dict, avg_features: dict,
-                  target_date: _date) -> str:
+                  target_date: _date, region: str = "global") -> str:
     """Rebuild a MusicGen prompt from mood + actual audio features."""
     season = _season_for_date(target_date)
     season_desc = SEASON_TEXTURE.get(season, "")
@@ -159,9 +159,50 @@ def _build_prompt(primary_mood: str, mood_blend: dict, avg_features: dict,
         elif loudness > -10:  loud_desc = "punchy mix"
         else:                 loud_desc = "dynamic and spacious mix"
 
+    # Emotion-driven texture from weekly news sentiment
+    emotion_parts = []
+    emotions = avg_features.get("_emotions", {})
+    if emotions:
+        EMO_TEXTURE = {
+            "avg_joy": "buoyant and radiant",
+            "avg_fear": "tense and unsettled",
+            "avg_anger": "fierce and defiant",
+            "avg_sadness": "wistful and heavy-hearted",
+            "avg_surprise": "unexpected twists",
+            "avg_disgust": "gritty and abrasive",
+            "avg_neutral": "restrained and matter-of-fact",
+        }
+        scored = [(k, v) for k, v in emotions.items() if k in EMO_TEXTURE]
+        scored.sort(key=lambda x: -x[1])
+        if scored:
+            emotion_parts.append(EMO_TEXTURE[scored[0][0]])
+            if len(scored) > 1 and scored[1][1] > 0.15:
+                emotion_parts.append(f"hints of {EMO_TEXTURE[scored[1][0]].split(' and ')[0]}")
+
+        anx = emotions.get("anxiety_index", 0)
+        tens = emotions.get("tension_index", 0)
+        pos = emotions.get("positivity_index", 0)
+        if anx > 0.6:
+            emotion_parts.append("anxious undercurrent")
+        if tens > 0.6:
+            emotion_parts.append("simmering tension")
+        if pos > 0.7:
+            emotion_parts.append("bright optimistic energy")
+
+    emotion_desc = ", ".join(emotion_parts)
+
+    # Region flavor
+    REGION_FLAVOR = {
+        "north_america": "North American pop-rock sensibility",
+        "latin_america": "Latin rhythmic heat",
+        "europe": "European electronic polish",
+        "global": "global crossover sound",
+    }
+    region_desc = REGION_FLAVOR.get(region, "")
+
     parts = [prefix, f"{season}, {season_desc}", tempo_desc, energy_desc,
              valence_desc, key_desc, dance_desc, acoustic_desc,
-             brightness_desc, loud_desc]
+             brightness_desc, loud_desc, region_desc, emotion_desc]
     if secondary_flavor:
         parts.append(secondary_flavor)
     return ", ".join(p for p in parts if p)
@@ -214,9 +255,35 @@ def _batch_features(client: bigquery.Client, all_tracks: list[dict]) -> dict:
     return lookup
 
 
+def _fetch_weekly_emotions(client: bigquery.Client) -> dict:
+    """Return {(week_start_str, region): {emotion_col: value}} from weekly_features."""
+    emo_cols = ["avg_fear", "avg_anger", "avg_joy", "avg_sadness",
+                "avg_surprise", "avg_disgust", "avg_neutral",
+                "anxiety_index", "tension_index", "positivity_index"]
+    cols_sql = ", ".join(f"CAST({c} AS FLOAT64) AS {c}" for c in emo_cols)
+    query = f"""
+        SELECT CAST(week_start AS STRING) AS week_start, region, {cols_sql}
+        FROM `{PROJECT}.music_analytics.weekly_features`
+    """
+    try:
+        rows = list(client.query(query).result())
+    except Exception as e:
+        logger.warning(f"Could not fetch weekly emotions: {e}")
+        return {}
+
+    lookup = {}
+    for r in rows:
+        key = (str(r["week_start"]), str(r["region"]))
+        lookup[key] = {c: float(r[c]) for c in emo_cols if r[c] is not None}
+    logger.info(f"  Loaded weekly emotions for {len(lookup)} region-weeks")
+    return lookup
+
+
 def _rebuild_prompts(client: bigquery.Client, all_tracks: list[dict]) -> None:
-    """Regenerate prompt_text for every track using actual audio features."""
+    """Regenerate prompt_text for every track using actual audio features
+    and weekly emotion scores so that each day's prompt is unique."""
     lookup = _batch_features(client, all_tracks)
+    emo_lookup = _fetch_weekly_emotions(client)
 
     rebuilt = 0
     for t in all_tracks:
@@ -249,13 +316,40 @@ def _rebuild_prompts(client: bigquery.Client, all_tracks: list[dict]) -> None:
         else:
             avg_features = {}
 
+        # Attach weekly emotion scores so _build_prompt can add emotion texture.
+        # Use generated_at date to find the matching week, not week_start, since
+        # multiple daily songs share the same week_start but were generated on
+        # different days and should reflect different emotion windows.
         ws = t.get("week_start", "")
+        region = t.get("region", "global")
+        gen_at = t.get("generated_at", "")
+        try:
+            gen_date = _date.fromisoformat(gen_at[:10]) if gen_at else None
+        except ValueError:
+            gen_date = None
+
+        # Find the closest week_start <= generated_at date
+        emo_data = None
+        if gen_date:
+            gen_monday = gen_date - timedelta(days=gen_date.weekday())
+            for offset in range(0, 4):
+                candidate = str(gen_monday - timedelta(weeks=offset))
+                emo_key = (candidate, region)
+                if emo_key in emo_lookup:
+                    emo_data = emo_lookup[emo_key]
+                    break
+        if not emo_data:
+            emo_key = (ws, region)
+            emo_data = emo_lookup.get(emo_key)
+        if emo_data:
+            avg_features["_emotions"] = emo_data
+
         try:
             target_date = _date.fromisoformat(ws) if ws else _date.today()
         except ValueError:
             target_date = _date.today()
 
-        t["prompt_text"] = _build_prompt(mood, blend, avg_features, target_date)
+        t["prompt_text"] = _build_prompt(mood, blend, avg_features, target_date, region)
         rebuilt += 1
 
     logger.info(f"  Rebuilt prompts for {rebuilt} tracks")
