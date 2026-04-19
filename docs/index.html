@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SoundPulse — Does the World Shape Music?</title>
+  <title>SoundPulse — Mapping Sentiment to Sound</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:        #08090f;
-      --surface:   #0d1117;
-      --surface-2: #161b22;
-      --border:    #21262d;
-      --border-2:  #30363d;
-      --text:      #e6edf3;
-      --muted:     #7d8590;
-      --accent:    #58a6ff;
-      --euphoric:  #ffd166;
-      --melancholic:#118ab2;
-      --aggressive:#ef476f;
-      --peaceful:  #06d6a0;
-      --groovy:    #8338ec;
+      --bg:        #0a0a0f;
+      --surface:   #101018;
+      --surface-2: #18181f;
+      --border:    #252530;
+      --border-2:  #35354a;
+      --text:      #e0ddd5;
+      --muted:     #807e76;
+      --accent:    #e85d26;
+      --euphoric:  #f0c246;
+      --melancholic:#4a7fb5;
+      --aggressive:#d64045;
+      --peaceful:  #3cba8a;
+      --groovy:    #a855f7;
     }
 
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -30,7 +30,7 @@
     body {
       background:var(--bg);
       color:var(--text);
-      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       line-height:1.6;
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
@@ -52,19 +52,20 @@
       display:flex; align-items:center; gap:8px; flex-shrink:0;
     }
     nav .logo-dot {
-      width:7px; height:7px; border-radius:50%;
+      width:7px; height:7px; border-radius:0;
       background:var(--accent);
-      box-shadow:0 0 10px rgba(88,166,255,.8);
+      box-shadow:0 0 10px rgba(232,93,38,.8);
       flex-shrink:0;
     }
     nav a { color:var(--muted); text-decoration:none; font-size:.84rem; font-weight:500; transition:color .15s; }
     nav a:hover { color:var(--text); }
     nav .nav-tag {
       margin-left:auto; flex-shrink:0;
-      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.18);
+      background:rgba(232,93,38,.07); border:1px solid rgba(232,93,38,.22);
       color:var(--accent); font-size:.67rem; font-weight:700;
       letter-spacing:.1em; text-transform:uppercase;
-      padding:4px 12px; border-radius:20px;
+      padding:4px 12px; border-radius:2px;
+      font-family:'IBM Plex Mono',monospace;
     }
 
     /* HERO */
@@ -76,20 +77,21 @@
     .hero::before {
       content:''; position:absolute; inset:0;
       background:
-        radial-gradient(ellipse 80% 50% at 50% -5%,rgba(88,166,255,.13) 0%,transparent 65%),
-        radial-gradient(ellipse 35% 30% at 15% 70%,rgba(131,56,236,.07) 0%,transparent 60%),
-        radial-gradient(ellipse 35% 30% at 85% 70%,rgba(6,214,160,.06) 0%,transparent 60%);
+        radial-gradient(ellipse 80% 50% at 50% -5%,rgba(232,93,38,.1) 0%,transparent 65%),
+        radial-gradient(ellipse 35% 30% at 15% 70%,rgba(168,85,247,.06) 0%,transparent 60%),
+        radial-gradient(ellipse 35% 30% at 85% 70%,rgba(240,194,70,.05) 0%,transparent 60%);
       pointer-events:none;
     }
     .hero .badge {
       display:inline-flex; align-items:center; gap:7px;
-      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.2);
+      background:rgba(232,93,38,.07); border:1px solid rgba(232,93,38,.22);
       color:var(--accent); font-size:.72rem; font-weight:600;
       letter-spacing:.09em; text-transform:uppercase;
-      padding:5px 14px; border-radius:20px; margin-bottom:28px;
+      padding:5px 14px; border-radius:2px; margin-bottom:28px;
+      font-family:'IBM Plex Mono',monospace;
     }
     .hero .badge::before {
-      content:''; width:5px; height:5px; border-radius:50%;
+      content:''; width:5px; height:5px; border-radius:0;
       background:var(--accent); display:inline-block;
       box-shadow:0 0 6px var(--accent);
     }
@@ -98,7 +100,7 @@
       line-height:1.1; margin-bottom:20px; letter-spacing:-.025em;
     }
     .hero h1 .gradient-text {
-      background:linear-gradient(135deg,#58a6ff 0%,#a5d6ff 60%,#79c0ff 100%);
+      background:linear-gradient(135deg,#e85d26 0%,#f0c246 60%,#e8973e 100%);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
       background-clip:text;
     }
@@ -112,13 +114,14 @@
       display:inline-flex; flex-direction:column; align-items:center; gap:14px;
       background:var(--surface-2);
       border:1px solid var(--border-2);
-      border-radius:20px; padding:28px 36px;
+      border-radius:4px; padding:28px 36px;
       box-shadow:0 8px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.03);
     }
     .audio-card .mood-badge {
       background:var(--aggressive); color:#fff;
       font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
-      padding:4px 12px; border-radius:20px;
+      padding:4px 12px; border-radius:2px;
+      font-family:'IBM Plex Mono',monospace;
     }
     .audio-card .prompt-text {
       font-size:.84rem; color:var(--muted); max-width:400px;
@@ -137,26 +140,29 @@
     .audio-tile {
       background:rgba(255,255,255,.03);
       border:1px solid rgba(255,255,255,.1);
-      border-radius:14px; padding:18px;
+      border-radius:4px; padding:18px;
     }
     .audio-tile .tile-period {
       font-size:.66rem; font-weight:700; letter-spacing:.1em;
       text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+      font-family:'IBM Plex Mono',monospace;
     }
     .audio-tile .tile-badge {
-      display:inline-block; border-radius:20px; padding:3px 12px;
+      display:inline-block; border-radius:2px; padding:3px 12px;
       font-size:.74rem; font-weight:700; margin-bottom:10px;
+      font-family:'IBM Plex Mono',monospace;
     }
     .audio-tile audio { width:100%; margin-top:8px; }
 
     /* REGION TABS */
     .region-tab {
-      padding:5px 16px; border-radius:20px; font-size:.78rem; font-weight:600;
+      padding:5px 16px; border-radius:2px; font-size:.78rem; font-weight:600;
       cursor:pointer; border:1px solid var(--border); background:transparent;
-      color:var(--muted); transition:all .15s; font-family:inherit;
+      color:var(--muted); transition:all .15s; font-family:'IBM Plex Mono',monospace;
+      text-transform:uppercase; letter-spacing:.06em;
     }
-    .region-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-    .region-tab:hover:not(.active) { border-color:var(--border-2); color:var(--text); }
+    .region-tab.active { background:var(--accent); border-color:var(--accent); color:#0a0a0f; }
+    .region-tab:hover:not(.active) { border-color:var(--accent); color:var(--text); }
 
     .audio-tile .tile-prompt {
       font-size:.73rem; color:var(--muted); margin-top:8px;
@@ -167,14 +173,15 @@
 
     /* SONG ARCHIVE */
     .htab {
-      padding:5px 16px; border-radius:20px; font-size:.78rem; font-weight:600;
+      padding:5px 16px; border-radius:2px; font-size:.78rem; font-weight:600;
       cursor:pointer; border:1px solid var(--border);
       background:transparent; color:var(--muted); transition:all .15s;
+      font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.06em;
     }
-    .htab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .htab.active { background:var(--accent); border-color:var(--accent); color:#0a0a0f; }
     .history-item {
       background:var(--surface); border:1px solid var(--border);
-      border-radius:10px; padding:16px; margin-bottom:12px;
+      border-radius:4px; padding:16px; margin-bottom:12px;
     }
 
     /* SECTIONS */
@@ -185,8 +192,9 @@
       display:inline-flex; align-items:center; gap:5px;
       font-size:.68rem; font-weight:700; letter-spacing:.12em;
       text-transform:uppercase; color:var(--accent);
-      background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.15);
-      padding:3px 10px; border-radius:20px; margin-bottom:12px;
+      background:rgba(232,93,38,.07); border:1px solid rgba(232,93,38,.18);
+      padding:3px 10px; border-radius:2px; margin-bottom:12px;
+      font-family:'IBM Plex Mono',monospace;
     }
     h2 { font-size:1.65rem; font-weight:800; margin-bottom:8px; letter-spacing:-.015em; }
     .subtitle { color:var(--muted); font-size:.95rem; margin-bottom:36px; max-width:680px; line-height:1.75; }
@@ -195,7 +203,7 @@
     .card {
       background:var(--surface-2);
       border:1px solid var(--border);
-      border-radius:14px; padding:24px; margin-bottom:24px;
+      border-radius:4px; padding:24px; margin-bottom:24px;
       transition:border-color .2s;
       overflow:hidden;
     }
@@ -214,15 +222,16 @@
     .metrics { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:32px; }
     .metric {
       background:var(--surface-2); border:1px solid var(--border);
-      border-radius:14px; padding:20px 24px;
+      border-radius:0; padding:20px 24px;
       flex:1; min-width:150px; position:relative; overflow:hidden;
+      border-left:3px solid var(--accent);
     }
     .metric::after {
       content:''; position:absolute; bottom:0; left:0; right:0;
-      height:2px; background:linear-gradient(90deg,var(--accent),transparent);
+      height:0;
     }
     .metric .value { font-size:2.1rem; font-weight:800; color:var(--accent); letter-spacing:-.02em; line-height:1; }
-    .metric .label { font-size:.76rem; color:var(--muted); margin-top:6px; font-weight:500; }
+    .metric .label { font-size:.72rem; color:var(--muted); margin-top:6px; font-weight:500; font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.06em; }
 
     /* PREDICTION TABLE */
     .pred-table { width:100%; border-collapse:collapse; font-size:.875rem; }
@@ -233,16 +242,16 @@
       text-transform:uppercase; letter-spacing:.07em;
     }
     .pred-table td { padding:10px 16px; border-bottom:1px solid var(--border); }
-    .pred-table tr.correct td { background:rgba(6,214,160,.04); }
-    .pred-table tr.wrong   td { background:rgba(239,71,111,.04); }
-    .pred-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.74rem; font-weight:700; }
+    .pred-table tr.correct td { background:rgba(60,186,138,.04); }
+    .pred-table tr.wrong   td { background:rgba(214,64,69,.04); }
+    .pred-badge { display:inline-block; padding:2px 8px; border-radius:2px; font-size:.74rem; font-weight:700; }
 
     /* TRACK LIST */
     .track-list { list-style:none; display:flex; flex-direction:column; gap:6px; }
     .track-list li {
       display:flex; align-items:center; gap:12px;
       padding:10px 14px;
-      background:var(--bg); border:1px solid var(--border); border-radius:10px;
+      background:var(--bg); border:1px solid var(--border); border-radius:4px;
       font-size:.875rem; transition:border-color .15s;
     }
     .track-list li:hover { border-color:var(--border-2); }
@@ -253,9 +262,10 @@
     .tech-grid { display:flex; flex-wrap:wrap; gap:8px; }
     .tech-pill {
       background:var(--surface-2); border:1px solid var(--border);
-      border-radius:20px; padding:7px 16px;
+      border-radius:2px; padding:7px 16px;
       font-size:.82rem; color:var(--muted); font-weight:500;
       transition:all .15s; cursor:default;
+      font-family:'IBM Plex Mono',monospace;
     }
     .tech-pill:hover { border-color:var(--border-2); color:var(--text); }
 
@@ -280,12 +290,12 @@
     .dev-bar .dev-name { color:var(--text); font-weight:600; }
     .dev-bar .dev-sep { color:var(--border-2); }
     .dev-bar a { color:var(--accent); text-decoration:none; transition:color .15s; }
-    .dev-bar a:hover { color:#79c0ff; }
+    .dev-bar a:hover { color:#e8973e; }
 
     /* DASHBOARD IFRAMES */
     .dash-embed {
       width:100%; height:680px; border:none;
-      border-radius:12px; background:var(--surface-2);
+      border-radius:4px; background:var(--surface-2);
       display:block;
     }
     .dash-fallback {
@@ -297,9 +307,9 @@
       margin-top:12px;
       width:100%;
       padding:14px;
-      background:rgba(88,166,255,.09);
-      border:1px solid rgba(88,166,255,.22);
-      border-radius:10px;
+      background:rgba(232,93,38,.09);
+      border:1px solid rgba(232,93,38,.22);
+      border-radius:2px;
       color:var(--accent);
       font-size:.88rem; font-weight:600;
       text-align:center; text-decoration:none;
@@ -324,25 +334,27 @@
       border-bottom:1px solid var(--border-2);
       padding:8px 16px;
     }
-    .run-status-ok  { color:#06d6a0; font-weight:700; }
-    .run-status-err { color:#ef476f; font-weight:700; }
-    .run-status-run { color:#ffd166; font-weight:700; }
+    .run-status-ok  { color:#3cba8a; font-weight:700; }
+    .run-status-err { color:#d64045; font-weight:700; }
+    .run-status-run { color:#f0c246; font-weight:700; }
     .run-modules { display:flex; flex-wrap:wrap; gap:4px; }
     .run-mod-pill {
-      font-size:.62rem; padding:1px 6px; border-radius:8px;
-      background:rgba(88,166,255,.1); color:var(--accent); border:1px solid rgba(88,166,255,.18);
+      font-size:.62rem; padding:1px 6px; border-radius:2px;
+      background:rgba(232,93,38,.1); color:var(--accent); border:1px solid rgba(232,93,38,.18);
+      font-family:'IBM Plex Mono',monospace;
     }
     .run-bar-wrap { grid-column:1/-1; padding:0 16px 10px; }
     .run-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:-4px; }
-    .run-bar-fill { height:100%; background:linear-gradient(90deg,#06d6a0,#58a6ff); border-radius:2px; }
+    .run-bar-fill { height:100%; background:linear-gradient(90deg,#3cba8a,#e85d26); border-radius:2px; }
 
     /* LOADING */
     .loading { color:var(--muted); font-size:.88rem; text-align:center; padding:48px; }
 
     /* MOOD CHIP */
     .mood-chip {
-      display:inline-block; padding:2px 10px; border-radius:12px;
+      display:inline-block; padding:2px 10px; border-radius:2px;
       font-size:.74rem; font-weight:700; color:#fff;
+      font-family:'IBM Plex Mono',monospace;
     }
     .mood-euphoric    { background:var(--euphoric); color:#000; }
     .mood-melancholic { background:var(--melancholic); }
@@ -353,7 +365,7 @@
     /* INSIGHT CARDS */
     .insight-card {
       background:var(--surface-2); border:1px solid var(--border);
-      border-radius:12px; padding:20px; position:relative; overflow:hidden;
+      border-radius:4px; padding:20px; position:relative; overflow:hidden;
     }
     .insight-card::after {
       content:''; position:absolute; top:0; left:0; right:0; height:2px;
@@ -365,6 +377,7 @@
     .insight-card .insight-type {
       font-size:.68rem; font-weight:700; letter-spacing:.1em;
       text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+      font-family:'IBM Plex Mono',monospace;
     }
     .insight-card .insight-value { font-size:1.15rem; font-weight:800; color:var(--text); margin-bottom:6px; letter-spacing:-.01em; }
     .insight-card .insight-desc  { font-size:.82rem; color:var(--muted); line-height:1.65; }
@@ -375,7 +388,7 @@
 <!-- NAV -->
 <nav>
   <a class="logo" href="#"><span class="logo-dot"></span>SoundPulse</a>
-  <a href="#process">How It Works</a>
+  <a href="#process">Architecture</a>
   <a href="#correlation">Correlation</a>
   <a href="#timeline">Timeline</a>
   <a href="#prediction">Prediction</a>
@@ -389,16 +402,16 @@
 <!-- HERO -->
 <div class="hero">
   <div class="badge">Data Engineering · ML · GenAI Portfolio</div>
-  <h1>Does the World Shape <span class="gradient-text">Music?</span></h1>
-  <p>A 14-module data pipeline that proves world events influence music listening habits —
-     and generates three AI music clips — today's, this week's, and this month's predicted mood.</p>
+  <h1>World Events Shape <span class="gradient-text">Music.</span></h1>
+  <p>A 14-module data pipeline proving that news sentiment drives chart mood shifts —
+     and generating three AI music clips daily: today's, this week's, and this month's predicted sound.</p>
 
   <!-- Region selector tabs -->
   <div style="display:flex; gap:8px; margin-top:28px; justify-content:center; flex-wrap:wrap;">
-    <button class="region-tab active" id="rtab-global"        data-region="global"        onclick="selectRegion('global')">🌐 Global</button>
-    <button class="region-tab"        id="rtab-north_america" data-region="north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
-    <button class="region-tab"        id="rtab-latin_america" data-region="latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
-    <button class="region-tab"        id="rtab-europe"        data-region="europe"        onclick="selectRegion('europe')">🌍 Europe</button>
+    <button class="region-tab active" id="rtab-global"        data-region="global"        onclick="selectRegion('global')">Global</button>
+    <button class="region-tab"        id="rtab-north_america" data-region="north_america" onclick="selectRegion('north_america')">N. America</button>
+    <button class="region-tab"        id="rtab-latin_america" data-region="latin_america" onclick="selectRegion('latin_america')">Latin America</button>
+    <button class="region-tab"        id="rtab-europe"        data-region="europe"        onclick="selectRegion('europe')">Europe</button>
   </div>
 
   <!-- AI SONG PREDICTIONS — loaded by JS -->
@@ -419,7 +432,7 @@
       </audio>
       <div class="tile-prompt" id="prompt-weekly"></div>
     </div>
-    <div class="audio-tile" style="border-color:rgba(88,166,255,.3)">
+    <div class="audio-tile" style="border-color:rgba(232,93,38,.3)">
       <div class="tile-period" style="color:var(--accent)">This Month</div>
       <div class="tile-badge" id="mood-monthly">—</div>
       <audio id="player-monthly" controls preload="none">
@@ -431,12 +444,12 @@
 </div>
 
 <!-- SONG ARCHIVE -->
-<div id="song-archive" style="background:#08090f; border-top:1px solid #21262d; padding:40px 24px 24px;">
+<div id="song-archive" style="background:#0a0a0f; border-top:1px solid #252530; padding:40px 24px 24px;">
   <div style="max-width:1100px; margin:0 auto;">
     <div class="section-label">AI Song Archive</div>
-    <h2 style="margin-bottom:6px;">Past Predictions, Stored Forever</h2>
+    <h2 style="margin-bottom:6px;">Prediction Archive</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:24px;max-width:600px;">
-      Every song committed to GitHub Pages — no cloud costs, plays directly in browser.
+      Every generated track committed to GitHub Pages. Zero cloud costs, plays directly in browser.
       Daily, weekly, and monthly clips archived automatically each pipeline run.
     </p>
     <div style="display:flex;gap:8px;margin-bottom:20px;">
@@ -449,30 +462,30 @@
 </div>
 
 <!-- PROCESS SECTION -->
-<div id="process" style="background: linear-gradient(180deg, #08090f 0%, #0c111a 100%); border-top: 1px solid #21262d;">
+<div id="process" style="background: linear-gradient(180deg, #0a0a0f 0%, #0c111a 100%); border-top: 1px solid #252530;">
 
   <!-- LIVE STATS BAR -->
-  <div style="border-bottom:1px solid #30363d; padding:28px 24px;">
+  <div style="border-bottom:1px solid #35354a; padding:28px 24px;">
     <div style="max-width:1100px; margin:0 auto; display:flex; flex-wrap:wrap; gap:0; justify-content:space-around;">
       <div class="stat-block" style="text-align:center; padding:12px 28px;">
-        <div id="stat-articles" style="font-size:2.4rem; font-weight:800; color:#58a6ff; line-height:1;">—</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">News Articles Analyzed</div>
+        <div id="stat-articles" style="font-size:2.4rem; font-weight:800; color:#e85d26; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#807e76; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">News Articles Analyzed</div>
       </div>
-      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
-        <div id="stat-weeks" style="font-size:2.4rem; font-weight:800; color:#58a6ff; line-height:1;">—</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Weeks of Pipeline Data</div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #35354a;">
+        <div id="stat-weeks" style="font-size:2.4rem; font-weight:800; color:#e85d26; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#807e76; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Weeks of Pipeline Data</div>
       </div>
-      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
-        <div id="stat-accuracy" style="font-size:2.4rem; font-weight:800; color:#06d6a0; line-height:1;">—</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">XGBoost Prediction Accuracy</div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #35354a;">
+        <div id="stat-accuracy" style="font-size:2.4rem; font-weight:800; color:#3cba8a; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#807e76; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">XGBoost Prediction Accuracy</div>
       </div>
-      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
-        <div id="stat-vectors" style="font-size:2.4rem; font-weight:800; color:#ffd166; line-height:1;">1,011</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Tracks in Vector Index</div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #35354a;">
+        <div id="stat-vectors" style="font-size:2.4rem; font-weight:800; color:#f0c246; line-height:1;">1,011</div>
+        <div style="font-size:.78rem; color:#807e76; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">Tracks in Vector Index</div>
       </div>
-      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #30363d;">
-        <div id="stat-sources" style="font-size:2.4rem; font-weight:800; color:#ef476f; line-height:1;">—</div>
-        <div style="font-size:.78rem; color:#8b949e; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">World Regions Tracked</div>
+      <div class="stat-block" style="text-align:center; padding:12px 28px; border-left:1px solid #35354a;">
+        <div id="stat-sources" style="font-size:2.4rem; font-weight:800; color:#d64045; line-height:1;">—</div>
+        <div style="font-size:.78rem; color:#807e76; margin-top:4px; text-transform:uppercase; letter-spacing:.08em;">World Regions Tracked</div>
       </div>
     </div>
   </div>
@@ -480,23 +493,23 @@
   <!-- THE HYPOTHESIS -->
   <section style="max-width:1100px; margin:0 auto; padding:64px 24px 32px;">
     <div style="max-width:720px;">
-      <div class="section-label">The Question</div>
+      <div class="section-label">The Hypothesis</div>
       <h2 style="font-size:2rem; font-weight:800; margin-bottom:20px; line-height:1.2;">
-        What if news headlines could predict<br>today's, this week's, and this month's chart mood?
+        News headlines predict<br>today's, this week's, and this month's chart mood.
       </h2>
-      <p style="color:#8b949e; font-size:1rem; line-height:1.8; margin-bottom:16px;">
-        The idea started from a hunch: music feels different during turbulent news cycles. When tensions rise —
-        political crises, economic anxiety, global unrest — the charts seem to go harder, angrier, more intense.
-        When things calm down, you get euphoric pop. Is that a real, measurable effect, or just pattern-matching noise?
+      <p style="color:#807e76; font-size:1rem; line-height:1.8; margin-bottom:16px;">
+        Music feels different during turbulent news cycles. When tensions rise —
+        political crises, economic anxiety, global unrest — the charts go harder, angrier, more intense.
+        When things calm down, euphoric pop dominates. This pipeline measures that effect.
       </p>
-      <p style="color:#8b949e; font-size:1rem; line-height:1.8; margin-bottom:16px;">
-        To find out, I built a 14-module data pipeline from scratch. It ingests real-time data from
+      <p style="color:#807e76; font-size:1rem; line-height:1.8; margin-bottom:16px;">
+        A 14-module data pipeline built from scratch. It ingests real-time data from
         six different sources, runs NLP emotion classification on thousands of news articles every week,
         clusters chart-topping songs by their sonic DNA, and trains a machine learning model to predict
-        the following week's dominant audio mood from the news sentiment alone.
+        the following week's dominant audio mood from news sentiment alone.
       </p>
-      <p style="color:#e6edf3; font-size:1rem; line-height:1.8; font-weight:500;">
-        The result? <span id="inline-accuracy" style="color:#06d6a0; font-weight:700;">live rolling accuracy</span> tracked via an outcome feedback loop —
+      <p style="color:#e0ddd5; font-size:1rem; line-height:1.8; font-weight:500;">
+        The result? <span id="inline-accuracy" style="color:#3cba8a; font-weight:700;">live rolling accuracy</span> tracked via an outcome feedback loop —
         and three AI-generated music clips: today's vibe, this week's sound, and this month's predicted mood.
       </p>
     </div>
@@ -506,117 +519,117 @@
   <section style="max-width:1100px; margin:0 auto; padding:16px 24px 48px;">
     <div class="section-label">The Data</div>
     <h2 style="margin-bottom:8px;">Six Sources. One Pipeline.</h2>
-    <p style="color:#8b949e; font-size:.95rem; margin-bottom:32px; max-width:600px;">
+    <p style="color:#807e76; font-size:.95rem; margin-bottom:32px; max-width:600px;">
       Every source was chosen because it represents a different slice of the music-world relationship.
       No scraping of paywalled data — all public APIs, all reproducible.
     </p>
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;">
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">📰</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">The Guardian API</div>
-            <div style="font-size:.78rem; color:#8b949e;">News sentiment · Emotion classification</div>
+            <div style="font-size:.78rem; color:#807e76;">News sentiment · Emotion classification</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           The backbone of the emotion analysis. Pulled 20,000+ articles across topics like
           politics, technology, culture, and science — going back 52 weeks. Every article
           runs through a DistilRoBERTa transformer fine-tuned on 7 emotions. Smart resume
           automatically backfills any missed days on the next pipeline run.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           REST API · HTTPS · Paginated · Daily batch pull
         </div>
       </div>
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">📊</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">Billboard Hot 100</div>
-            <div style="font-size:.78rem; color:#8b949e;">Chart rankings · Weekly trends</div>
+            <div style="font-size:.78rem; color:#807e76;">Chart rankings · Weekly trends</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           The gold standard for US music popularity. Weekly snapshots of the Hot 100,
           including rank movement, weeks on chart, and peak position. Combined with Librosa
           audio features to understand the sonic profile of what's charting.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           Billboard scraper · Weekly pull · Historical backfill 12 months · Smart resume (7-day gap fill)
         </div>
       </div>
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">🎵</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">iTunes + Last.fm</div>
-            <div style="font-size:.78rem; color:#8b949e;">Global trending · Real-time listening</div>
+            <div style="font-size:.78rem; color:#807e76;">Global trending · Real-time listening</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           iTunes gives real-time chart rankings across 60+ countries. Last.fm adds
           global scrobble data — actual listening behaviour, not just purchases. Together
           they capture both commercial success and organic listening trends.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           iTunes RSS · Last.fm REST API · Intraday polling
         </div>
       </div>
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">🎧</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">Librosa (Audio DNA)</div>
-            <div style="font-size:.78rem; color:#8b949e;">30 acoustic features · Mood fingerprinting</div>
+            <div style="font-size:.78rem; color:#807e76;">30 acoustic features · Mood fingerprinting</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           Every trending track gets a 30-dimensional acoustic fingerprint: tempo, energy,
           13 MFCCs, 12 chroma bins, spectral centroid, harmonic-to-percussive ratio.
           This is what the KMeans algorithm actually clusters — not song titles, pure sound.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           Librosa Python · 30-second audio previews · Local processing
         </div>
       </div>
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">📺</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">YouTube Trending</div>
-            <div style="font-size:.78rem; color:#8b949e;">Video virality · Cross-platform signal</div>
+            <div style="font-size:.78rem; color:#807e76;">Video virality · Cross-platform signal</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           YouTube's trending music videos act as a virality signal that's independent of
           streaming platforms. A song trending on YouTube before it hits Spotify is a leading
           indicator — useful for detecting mood shifts before they fully materialise on charts.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           YouTube Data API v3 · Daily pulls · Multi-country
         </div>
       </div>
 
-      <div class="source-card" style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:22px 24px;">
+      <div class="source-card" style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:22px 24px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:1.6rem;">💬</span>
           <div>
             <div style="font-weight:700; font-size:1rem;">Reddit (r/music + r/news)</div>
-            <div style="font-size:.78rem; color:#8b949e;">Community sentiment · Engagement signals</div>
+            <div style="font-size:.78rem; color:#807e76;">Community sentiment · Engagement signals</div>
           </div>
         </div>
-        <p style="font-size:.85rem; color:#8b949e; line-height:1.7; margin-bottom:10px;">
+        <p style="font-size:.85rem; color:#807e76; line-height:1.7; margin-bottom:10px;">
           Reddit captures what people are saying about music, not just what they're listening to.
           Score (upvotes minus downvotes) and comment counts serve as engagement proxies.
           A post going viral in r/music is often an early signal of a song breaking through.
         </p>
-        <div style="font-size:.78rem; border-top:1px solid #30363d; padding-top:10px; color:#58a6ff;">
+        <div style="font-size:.78rem; border-top:1px solid #35354a; padding-top:10px; color:#e85d26;">
           PRAW (Python Reddit API Wrapper) · Streaming · OAuth2 · Smart resume (7-day gap fill)
         </div>
       </div>
@@ -628,105 +641,105 @@
   <section style="max-width:1100px; margin:0 auto; padding:16px 24px 48px;">
     <div class="section-label">The Architecture</div>
     <h2 style="margin-bottom:8px;">14 Modules. End to End.</h2>
-    <p style="color:#8b949e; font-size:.95rem; margin-bottom:36px; max-width:640px;">
+    <p style="color:#807e76; font-size:.95rem; margin-bottom:36px; max-width:640px;">
       Built in layers — each module builds on the output of the previous. The pipeline runs daily,
       writes to BigQuery, transforms through dbt, and surfaces everything through a FastAPI backend.
     </p>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
 
-      <div style="grid-column:1/-1; background:#0d1117; border:1px solid #58a6ff33; border-radius:10px; padding:16px 20px; font-size:.82rem; color:#8b949e; display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
-        <span style="color:#58a6ff; font-weight:700; font-size:.9rem;">Data Flow</span>
-        <span>APIs / RSS</span><span style="color:#30363d">→</span>
-        <span>Python Ingestion</span><span style="color:#30363d">→</span>
-        <span>Google Cloud Storage</span><span style="color:#30363d">→</span>
-        <span>BigQuery (raw)</span><span style="color:#30363d">→</span>
-        <span>dbt (transformed)</span><span style="color:#30363d">→</span>
-        <span>Python ML</span><span style="color:#30363d">→</span>
-        <span>Pinecone + MusicGen</span><span style="color:#30363d">→</span>
+      <div style="grid-column:1/-1; background:#101018; border:1px solid #e85d2633; border-radius:4px; padding:16px 20px; font-size:.82rem; color:#807e76; display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
+        <span style="color:#e85d26; font-weight:700; font-size:.9rem;">Data Flow</span>
+        <span>APIs / RSS</span><span style="color:#35354a">→</span>
+        <span>Python Ingestion</span><span style="color:#35354a">→</span>
+        <span>Google Cloud Storage</span><span style="color:#35354a">→</span>
+        <span>BigQuery (raw)</span><span style="color:#35354a">→</span>
+        <span>dbt (transformed)</span><span style="color:#35354a">→</span>
+        <span>Python ML</span><span style="color:#35354a">→</span>
+        <span>Pinecone + MusicGen</span><span style="color:#35354a">→</span>
         <span>FastAPI → Web</span>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
-        <div style="color:#ef476f; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Ingestion Layer · Modules 1–8</div>
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:20px;">
+        <div style="color:#d64045; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Ingestion Layer · Modules 1–8</div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M1</span>
-            <span style="font-size:.84rem; color:#8b949e;">News + Reddit + YouTube — REST APIs, daily batch ingestion to GCS as JSONL, then loaded to BigQuery · Smart resume auto-backfills Billboard, News &amp; Reddit for any missed days</span>
+            <span style="background:#d6404522; color:#d64045; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M1</span>
+            <span style="font-size:.84rem; color:#807e76;">News + Reddit + YouTube — REST APIs, daily batch ingestion to GCS as JSONL, then loaded to BigQuery · Smart resume auto-backfills Billboard, News &amp; Reddit for any missed days</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M2</span>
-            <span style="font-size:.84rem; color:#8b949e;">Spotify audio features — danceability, energy, valence, acousticness matched to chart tracks</span>
+            <span style="background:#d6404522; color:#d64045; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M2</span>
+            <span style="font-size:.84rem; color:#807e76;">Spotify audio features — danceability, energy, valence, acousticness matched to chart tracks</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M3–5</span>
-            <span style="font-size:.84rem; color:#8b949e;">iTunes, Last.fm, Billboard — three chart sources merged into a unified trending_tracks table</span>
+            <span style="background:#d6404522; color:#d64045; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M3–5</span>
+            <span style="font-size:.84rem; color:#807e76;">iTunes, Last.fm, Billboard — three chart sources merged into a unified trending_tracks table</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M6</span>
-            <span style="font-size:.84rem; color:#8b949e;">Librosa — 30-second previews processed locally, extracting 30 acoustic features per track</span>
+            <span style="background:#d6404522; color:#d64045; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M6</span>
+            <span style="font-size:.84rem; color:#807e76;">Librosa — 30-second previews processed locally, extracting 30 acoustic features per track</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ef476f22; color:#ef476f; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M7–8</span>
-            <span style="font-size:.84rem; color:#8b949e;">dbt transformations — 15 staging views + 5 mart tables, 82 data quality tests</span>
+            <span style="background:#d6404522; color:#d64045; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M7–8</span>
+            <span style="font-size:.84rem; color:#807e76;">dbt transformations — 15 staging views + 5 mart tables, 82 data quality tests</span>
           </div>
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
-        <div style="color:#ffd166; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Analysis Layer · Modules 9–12</div>
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:20px;">
+        <div style="color:#f0c246; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Analysis Layer · Modules 9–12</div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M9</span>
-            <span style="font-size:.84rem; color:#8b949e;">DistilRoBERTa (j-hartmann model) — 7-emotion classification on 20,000+ articles across 52 weeks, batched in 64s, GPU-optional</span>
+            <span style="background:#f0c24622; color:#f0c246; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M9</span>
+            <span style="font-size:.84rem; color:#807e76;">DistilRoBERTa (j-hartmann model) — 7-emotion classification on 20,000+ articles across 52 weeks, batched in 64s, GPU-optional</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M10</span>
-            <span style="font-size:.84rem; color:#8b949e;">KMeans clustering — silhouette-scored, k=3 active archetypes (euphoric, melancholic, aggressive) scored on valence x arousal quadrants; peaceful &amp; groovy emerge as data grows</span>
+            <span style="background:#f0c24622; color:#f0c246; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M10</span>
+            <span style="font-size:.84rem; color:#807e76;">KMeans clustering — silhouette-scored, k=3 active archetypes (euphoric, melancholic, aggressive) scored on valence x arousal quadrants; peaceful &amp; groovy emerge as data grows</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M11</span>
-            <span style="font-size:.84rem; color:#8b949e;">Pearson correlation — 50 pairs (10 emotions × 5 moods), computed in both Python and BigQuery native CORR()</span>
+            <span style="background:#f0c24622; color:#f0c246; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M11</span>
+            <span style="font-size:.84rem; color:#807e76;">Pearson correlation — 50 pairs (10 emotions × 5 moods), computed in both Python and BigQuery native CORR()</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#ffd16622; color:#ffd166; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M12</span>
-            <span style="font-size:.84rem; color:#8b949e;">XGBoost multiclass — 23 features (10 emotions + 5 mood pcts + 8 seasonal/temporal), recency-decay × class-balanced weights, 3-period inference: today · weekly · monthly · outcome validator closes feedback loop each week</span>
+            <span style="background:#f0c24622; color:#f0c246; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">M12</span>
+            <span style="font-size:.84rem; color:#807e76;">XGBoost multiclass — 23 features (10 emotions + 5 mood pcts + 8 seasonal/temporal), recency-decay × class-balanced weights, 3-period inference: today · weekly · monthly · outcome validator closes feedback loop each week</span>
           </div>
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
-        <div style="color:#06d6a0; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">GenAI Layer · Module 13</div>
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:20px;">
+        <div style="color:#3cba8a; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">GenAI Layer · Module 13</div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13a</span>
-            <span style="font-size:.84rem; color:#8b949e;">Pinecone vector index — 1,011 tracks embedded as 30-dim acoustic vectors, StandardScaler fitted on the full corpus, cosine similarity search</span>
+            <span style="background:#3cba8a22; color:#3cba8a; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13a</span>
+            <span style="font-size:.84rem; color:#807e76;">Pinecone vector index — 1,011 tracks embedded as 30-dim acoustic vectors, StandardScaler fitted on the full corpus, cosine similarity search</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72km; font-weight:700; flex-shrink:0;">13b</span>
-            <span style="font-size:.84rem; color:#8b949e;">MusicGen-small (Facebook/Meta) — runs 3× per pipeline (today/weekly/monthly), each with a season-aware blended prompt from mood probabilities + audio features, 500 tokens = 10s WAV</span>
+            <span style="background:#3cba8a22; color:#3cba8a; border-radius:4px; padding:2px 8px; font-size:.72km; font-weight:700; flex-shrink:0;">13b</span>
+            <span style="font-size:.84rem; color:#807e76;">MusicGen-small (Facebook/Meta) — runs 3× per pipeline (today/weekly/monthly), each with a season-aware blended prompt from mood probabilities + audio features, 500 tokens = 10s WAV</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#06d6a022; color:#06d6a0; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13c</span>
-            <span style="font-size:.84rem; color:#8b949e;">3 WAVs (today/weekly/monthly) → GCS → BigQuery generated_tracks (period + mood_blend_json) → dbt staging → GitHub Pages history archive</span>
+            <span style="background:#3cba8a22; color:#3cba8a; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">13c</span>
+            <span style="font-size:.84rem; color:#807e76;">3 WAVs (today/weekly/monthly) → GCS → BigQuery generated_tracks (period + mood_blend_json) → dbt staging → GitHub Pages history archive</span>
           </div>
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:20px;">
-        <div style="color:#8338ec; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Serving Layer · Module 14</div>
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:20px;">
+        <div style="color:#a855f7; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;">Serving Layer · Module 14</div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">API</span>
-            <span style="font-size:.84rem; color:#8b949e;">FastAPI backend — 8 endpoints querying BigQuery dbt_transformed views, CORS-enabled for cross-origin dashboard access</span>
+            <span style="background:#a855f722; color:#a855f7; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">API</span>
+            <span style="font-size:.84rem; color:#807e76;">FastAPI backend — 8 endpoints querying BigQuery dbt_transformed views, CORS-enabled for cross-origin dashboard access</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">UI</span>
-            <span style="font-size:.84rem; color:#8b949e;">Two Streamlit dashboards — Mood Intelligence (ML analysis) and Music Trends (audio clustering) — plus this GitHub Pages static site</span>
+            <span style="background:#a855f722; color:#a855f7; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">UI</span>
+            <span style="font-size:.84rem; color:#807e76;">Two Streamlit dashboards — Mood Intelligence (ML analysis) and Music Trends (audio clustering) — plus this GitHub Pages static site</span>
           </div>
           <div style="display:flex; gap:10px; align-items:flex-start;">
-            <span style="background:#8338ec22; color:#8338ec; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">CI</span>
-            <span style="font-size:.84rem; color:#8b949e;">Prefect orchestration — daily 2am runs, all 14 modules in dependency order, failure alerts, retry logic, smart resume (7-day gap backfill for Billboard + News + Reddit)</span>
+            <span style="background:#a855f722; color:#a855f7; border-radius:4px; padding:2px 8px; font-size:.72rem; font-weight:700; flex-shrink:0;">CI</span>
+            <span style="font-size:.84rem; color:#807e76;">Prefect orchestration — daily 2am runs, all 14 modules in dependency order, failure alerts, retry logic, smart resume (7-day gap backfill for Billboard + News + Reddit)</span>
           </div>
         </div>
       </div>
@@ -738,283 +751,283 @@
   <section style="max-width:1100px; margin:0 auto; padding:0 24px 64px;">
     <div class="section-label">End-to-End Flow</div>
     <h2 style="margin-bottom:8px;">From headline to music clip</h2>
-    <p style="color:#7d8590; font-size:.95rem; margin-bottom:36px; max-width:640px; line-height:1.75;">
+    <p style="color:#807e76; font-size:.95rem; margin-bottom:36px; max-width:640px; line-height:1.75;">
       Every box is a real system. Each arrow is data physically moving — from raw API responses to a 10-second AI-generated audio clip.
     </p>
     <div style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
       <svg viewBox="0 0 860 810" style="width:100%; min-width:480px; display:block; background:transparent;" xmlns="http://www.w3.org/2000/svg">
 
         <!-- LAYER 1 · DATA SOURCES -->
-        <rect x="10" y="10" width="840" height="115" rx="12" style="fill:#161b22" stroke="rgba(239,71,111,.45)" stroke-width="1.5"/>
-        <text x="24" y="30" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="8.5" font-weight="700" fill="#ef476f" letter-spacing="1.8">DATA SOURCES · 6 APIs · MODULES 1–6</text>
-        <rect x="24"  y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="77"  y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">📰 Guardian</text>
-        <rect x="138" y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="191" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">📊 Billboard</text>
-        <rect x="252" y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="305" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">🎵 iTunes</text>
-        <rect x="366" y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="419" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">🎵 Last.fm</text>
-        <rect x="480" y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="533" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">📺 YouTube</text>
-        <rect x="594" y="38" width="106" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="647" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">💬 Reddit</text>
-        <rect x="708" y="38" width="142" height="24" rx="5" fill="rgba(239,71,111,.1)" stroke="rgba(239,71,111,.25)"/><text x="779" y="54" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">🎧 Spotify + Librosa</text>
-        <text x="24" y="82"  font-family="-apple-system,sans-serif" font-size="10.5" font-weight="600" fill="#58a6ff">Python ingestion scripts</text>
-        <text x="180" y="82" font-family="-apple-system,sans-serif" font-size="10.5" fill="#4d5566"> · </text>
-        <text x="190" y="82" font-family="-apple-system,sans-serif" font-size="10.5" fill="#6b7280">REST APIs · RSS feeds · PRAW OAuth2 · YouTube Data v3 · Spotify Web API</text>
-        <text x="24" y="100" font-family="-apple-system,sans-serif" font-size="10"   fill="#4d5566">Daily batch pull → GCS JSONL data lake → BigQuery raw · music_analytics dataset · 7 source tables</text>
+        <rect x="10" y="10" width="840" height="115" rx="12" style="fill:#18181f" stroke="rgba(214,64,69,.45)" stroke-width="1.5"/>
+        <text x="24" y="30" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8.5" font-weight="700" fill="#d64045" letter-spacing="1.8">DATA SOURCES · 6 APIs · MODULES 1–6</text>
+        <rect x="24"  y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="77"  y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">📰 Guardian</text>
+        <rect x="138" y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="191" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">📊 Billboard</text>
+        <rect x="252" y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="305" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">🎵 iTunes</text>
+        <rect x="366" y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="419" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">🎵 Last.fm</text>
+        <rect x="480" y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="533" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">📺 YouTube</text>
+        <rect x="594" y="38" width="106" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="647" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">💬 Reddit</text>
+        <rect x="708" y="38" width="142" height="24" rx="5" fill="rgba(214,64,69,.1)" stroke="rgba(214,64,69,.25)"/><text x="779" y="54" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">🎧 Spotify + Librosa</text>
+        <text x="24" y="82"  font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" font-weight="600" fill="#e85d26">Python ingestion scripts</text>
+        <text x="180" y="82" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#4a4a55"> · </text>
+        <text x="190" y="82" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#6b6b62">REST APIs · RSS feeds · PRAW OAuth2 · YouTube Data v3 · Spotify Web API</text>
+        <text x="24" y="100" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"   fill="#4a4a55">Daily batch pull → GCS JSONL data lake → BigQuery raw · music_analytics dataset · 7 source tables</text>
 
         <!-- arrow 1 -->
-        <line x1="430" y1="125" x2="430" y2="157" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
-        <polygon points="423,155 437,155 430,165" fill="#3d4451"/>
+        <line x1="430" y1="125" x2="430" y2="157" stroke="#35354a" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <polygon points="423,155 437,155 430,165" fill="#35354a"/>
 
         <!-- LAYER 2 · INGESTION + STORAGE -->
-        <rect x="10" y="165" width="840" height="60" rx="12" style="fill:#161b22" stroke="rgba(244,162,97,.4)" stroke-width="1.5"/>
-        <text x="24" y="183" font-family="-apple-system,sans-serif" font-size="8.5" font-weight="700" fill="#f4a261" letter-spacing="1.5">INGESTION + STORAGE · M1–M6</text>
-        <rect x="24"  y="190" width="224" height="26" rx="6" fill="rgba(244,162,97,.08)" stroke="rgba(244,162,97,.2)"/><text x="136" y="207" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">🐍 8 Python ingestion scripts</text>
-        <text x="255" y="207" font-family="-apple-system,sans-serif" font-size="13" fill="#30363d">→</text>
-        <rect x="270" y="190" width="224" height="26" rx="6" fill="rgba(244,162,97,.08)" stroke="rgba(244,162,97,.2)"/><text x="382" y="207" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">🪣 GCS · JSONL data lake</text>
-        <text x="501" y="207" font-family="-apple-system,sans-serif" font-size="13" fill="#30363d">→</text>
-        <rect x="516" y="190" width="334" height="26" rx="6" fill="rgba(244,162,97,.08)" stroke="rgba(244,162,97,.2)"/><text x="683" y="207" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">📊 BigQuery · music_analytics · 7 raw tables</text>
+        <rect x="10" y="165" width="840" height="60" rx="12" style="fill:#18181f" stroke="rgba(232,151,62,.4)" stroke-width="1.5"/>
+        <text x="24" y="183" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8.5" font-weight="700" fill="#e8973e" letter-spacing="1.5">INGESTION + STORAGE · M1–M6</text>
+        <rect x="24"  y="190" width="224" height="26" rx="6" fill="rgba(232,151,62,.08)" stroke="rgba(232,151,62,.2)"/><text x="136" y="207" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">🐍 8 Python ingestion scripts</text>
+        <text x="255" y="207" font-family="Space Grotesk,-apple-system,sans-serif" font-size="13" fill="#35354a">→</text>
+        <rect x="270" y="190" width="224" height="26" rx="6" fill="rgba(232,151,62,.08)" stroke="rgba(232,151,62,.2)"/><text x="382" y="207" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">🪣 GCS · JSONL data lake</text>
+        <text x="501" y="207" font-family="Space Grotesk,-apple-system,sans-serif" font-size="13" fill="#35354a">→</text>
+        <rect x="516" y="190" width="334" height="26" rx="6" fill="rgba(232,151,62,.08)" stroke="rgba(232,151,62,.2)"/><text x="683" y="207" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">📊 BigQuery · music_analytics · 7 raw tables</text>
 
         <!-- arrow 2 -->
-        <line x1="430" y1="225" x2="430" y2="257" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
-        <polygon points="423,255 437,255 430,265" fill="#3d4451"/>
+        <line x1="430" y1="225" x2="430" y2="257" stroke="#35354a" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <polygon points="423,255 437,255 430,265" fill="#35354a"/>
 
         <!-- LAYER 3 · DBT -->
-        <rect x="10" y="265" width="840" height="60" rx="12" style="fill:#161b22" stroke="rgba(255,209,102,.4)" stroke-width="1.5"/>
-        <text x="24" y="283" font-family="-apple-system,sans-serif" font-size="8.5" font-weight="700" fill="#ffd166" letter-spacing="1.5">DBT TRANSFORMATIONS · M7–M8 · BigQuery dbt_transformed</text>
-        <rect x="24"  y="290" width="148" height="26" rx="6" fill="rgba(255,209,102,.08)" stroke="rgba(255,209,102,.2)"/><text x="98"  y="307" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">15 staging views</text>
-        <rect x="180" y="290" width="140" height="26" rx="6" fill="rgba(255,209,102,.08)" stroke="rgba(255,209,102,.2)"/><text x="250" y="307" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">5 mart tables</text>
-        <rect x="328" y="290" width="148" height="26" rx="6" fill="rgba(255,209,102,.08)" stroke="rgba(255,209,102,.2)"/><text x="402" y="307" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">82 tests passing</text>
-        <rect x="484" y="290" width="182" height="26" rx="6" fill="rgba(255,209,102,.08)" stroke="rgba(255,209,102,.2)"/><text x="575" y="307" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">weekly_features joined</text>
-        <rect x="674" y="290" width="176" height="26" rx="6" fill="rgba(255,209,102,.08)" stroke="rgba(255,209,102,.2)"/><text x="762" y="307" font-family="-apple-system,sans-serif" font-size="10.5" fill="#e6edf3" text-anchor="middle">CORR() native BQ</text>
+        <rect x="10" y="265" width="840" height="60" rx="12" style="fill:#18181f" stroke="rgba(240,194,70,.4)" stroke-width="1.5"/>
+        <text x="24" y="283" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8.5" font-weight="700" fill="#f0c246" letter-spacing="1.5">DBT TRANSFORMATIONS · M7–M8 · BigQuery dbt_transformed</text>
+        <rect x="24"  y="290" width="148" height="26" rx="6" fill="rgba(240,194,70,.08)" stroke="rgba(240,194,70,.2)"/><text x="98"  y="307" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">15 staging views</text>
+        <rect x="180" y="290" width="140" height="26" rx="6" fill="rgba(240,194,70,.08)" stroke="rgba(240,194,70,.2)"/><text x="250" y="307" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">5 mart tables</text>
+        <rect x="328" y="290" width="148" height="26" rx="6" fill="rgba(240,194,70,.08)" stroke="rgba(240,194,70,.2)"/><text x="402" y="307" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">82 tests passing</text>
+        <rect x="484" y="290" width="182" height="26" rx="6" fill="rgba(240,194,70,.08)" stroke="rgba(240,194,70,.2)"/><text x="575" y="307" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">weekly_features joined</text>
+        <rect x="674" y="290" width="176" height="26" rx="6" fill="rgba(240,194,70,.08)" stroke="rgba(240,194,70,.2)"/><text x="762" y="307" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10.5" fill="#e0ddd5" text-anchor="middle">CORR() native BQ</text>
 
         <!-- arrow 3 -->
-        <line x1="430" y1="325" x2="430" y2="357" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
-        <polygon points="423,355 437,355 430,365" fill="#3d4451"/>
+        <line x1="430" y1="325" x2="430" y2="357" stroke="#35354a" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <polygon points="423,355 437,355 430,365" fill="#35354a"/>
 
         <!-- LAYER 4 · ANALYSIS · 4 boxes -->
         <!-- M9 NLP -->
-        <rect x="10"  y="365" width="203" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
-        <text x="111" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M9 · EMOTION NLP</text>
-        <text x="111" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">🤗</text>
-        <text x="111" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">DistilRoBERTa</text>
-        <text x="111" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">7 emotions · 6,348 articles</text>
-        <text x="111" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">batched inference</text>
+        <rect x="10"  y="365" width="203" height="115" rx="12" style="fill:#18181f" stroke="rgba(232,93,38,.4)" stroke-width="1.5"/>
+        <text x="111" y="385" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#e85d26" text-anchor="middle" letter-spacing="1.2">M9 · EMOTION NLP</text>
+        <text x="111" y="406" font-family="Space Grotesk,-apple-system,sans-serif" font-size="21" text-anchor="middle">🤗</text>
+        <text x="111" y="428" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">DistilRoBERTa</text>
+        <text x="111" y="444" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">7 emotions · 6,348 articles</text>
+        <text x="111" y="460" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">batched inference</text>
         <!-- horiz arrow M9→M10 -->
-        <line x1="213" y1="422" x2="225" y2="422" stroke="#58a6ff" stroke-width="1.5"/>
-        <polygon points="223,417 231,422 223,427" fill="#58a6ff"/>
+        <line x1="213" y1="422" x2="225" y2="422" stroke="#e85d26" stroke-width="1.5"/>
+        <polygon points="223,417 231,422 223,427" fill="#e85d26"/>
 
         <!-- M10 KMeans -->
-        <rect x="233" y="365" width="203" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
-        <text x="334" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M10 · KMEANS</text>
-        <text x="334" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">🧩</text>
-        <text x="334" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">k=3 archetypes</text>
-        <text x="334" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">euphoric · melancholic</text>
-        <text x="334" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">aggressive · peaceful · groovy</text>
+        <rect x="233" y="365" width="203" height="115" rx="12" style="fill:#18181f" stroke="rgba(232,93,38,.4)" stroke-width="1.5"/>
+        <text x="334" y="385" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#e85d26" text-anchor="middle" letter-spacing="1.2">M10 · KMEANS</text>
+        <text x="334" y="406" font-family="Space Grotesk,-apple-system,sans-serif" font-size="21" text-anchor="middle">🧩</text>
+        <text x="334" y="428" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">k=3 archetypes</text>
+        <text x="334" y="444" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">euphoric · melancholic</text>
+        <text x="334" y="460" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">aggressive · peaceful · groovy</text>
         <!-- horiz arrow M10→M11 -->
-        <line x1="436" y1="422" x2="448" y2="422" stroke="#58a6ff" stroke-width="1.5"/>
-        <polygon points="446,417 454,422 446,427" fill="#58a6ff"/>
+        <line x1="436" y1="422" x2="448" y2="422" stroke="#e85d26" stroke-width="1.5"/>
+        <polygon points="446,417 454,422 446,427" fill="#e85d26"/>
 
         <!-- M11 Pearson -->
-        <rect x="456" y="365" width="203" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
-        <text x="557" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M11 · PEARSON r</text>
-        <text x="557" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">📐</text>
-        <text x="557" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">50 emotion-mood pairs</text>
-        <text x="557" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">BigQuery CORR()</text>
-        <text x="557" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">52-week window</text>
+        <rect x="456" y="365" width="203" height="115" rx="12" style="fill:#18181f" stroke="rgba(232,93,38,.4)" stroke-width="1.5"/>
+        <text x="557" y="385" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#e85d26" text-anchor="middle" letter-spacing="1.2">M11 · PEARSON r</text>
+        <text x="557" y="406" font-family="Space Grotesk,-apple-system,sans-serif" font-size="21" text-anchor="middle">📐</text>
+        <text x="557" y="428" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">50 emotion-mood pairs</text>
+        <text x="557" y="444" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">BigQuery CORR()</text>
+        <text x="557" y="460" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">52-week window</text>
         <!-- horiz arrow M11→M12 -->
-        <line x1="659" y1="422" x2="671" y2="422" stroke="#58a6ff" stroke-width="1.5"/>
-        <polygon points="669,417 677,422 669,427" fill="#58a6ff"/>
+        <line x1="659" y1="422" x2="671" y2="422" stroke="#e85d26" stroke-width="1.5"/>
+        <polygon points="669,417 677,422 669,427" fill="#e85d26"/>
 
         <!-- M12 XGBoost -->
-        <rect x="679" y="365" width="171" height="115" rx="12" style="fill:#161b22" stroke="rgba(88,166,255,.4)" stroke-width="1.5"/>
-        <text x="764" y="385" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#58a6ff" text-anchor="middle" letter-spacing="1.2">M12 · XGBOOST + SHAP</text>
-        <text x="764" y="406" font-family="-apple-system,sans-serif" font-size="21" text-anchor="middle">🤖</text>
-        <text x="764" y="428" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">23 features · recency-decay weights</text>
-        <text x="764" y="444" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">today · weekly · monthly</text>
-        <text x="764" y="460" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">feedback loop · outcome validator</text>
+        <rect x="679" y="365" width="171" height="115" rx="12" style="fill:#18181f" stroke="rgba(232,93,38,.4)" stroke-width="1.5"/>
+        <text x="764" y="385" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#e85d26" text-anchor="middle" letter-spacing="1.2">M12 · XGBOOST + SHAP</text>
+        <text x="764" y="406" font-family="Space Grotesk,-apple-system,sans-serif" font-size="21" text-anchor="middle">🤖</text>
+        <text x="764" y="428" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">23 features · recency-decay weights</text>
+        <text x="764" y="444" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">today · weekly · monthly</text>
+        <text x="764" y="460" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">feedback loop · outcome validator</text>
 
         <!-- arrow 4 -->
-        <line x1="430" y1="480" x2="430" y2="512" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
-        <polygon points="423,510 437,510 430,520" fill="#3d4451"/>
+        <line x1="430" y1="480" x2="430" y2="512" stroke="#35354a" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <polygon points="423,510 437,510 430,520" fill="#35354a"/>
 
         <!-- LAYER 5 · GENAI -->
         <!-- Pinecone -->
-        <rect x="10"  y="520" width="415" height="90" rx="12" style="fill:#161b22" stroke="rgba(6,214,160,.4)" stroke-width="1.5"/>
-        <text x="217" y="540" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#06d6a0" text-anchor="middle" letter-spacing="1.2">M13a · PINECONE VECTOR INDEX</text>
-        <text x="217" y="560" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">📌</text>
-        <text x="217" y="580" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">1,011 tracks · 30-dim vectors</text>
-        <text x="217" y="596" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">StandardScaler · cosine similarity search</text>
+        <rect x="10"  y="520" width="415" height="90" rx="12" style="fill:#18181f" stroke="rgba(60,186,138,.4)" stroke-width="1.5"/>
+        <text x="217" y="540" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#3cba8a" text-anchor="middle" letter-spacing="1.2">M13a · PINECONE VECTOR INDEX</text>
+        <text x="217" y="560" font-family="Space Grotesk,-apple-system,sans-serif" font-size="20" text-anchor="middle">📌</text>
+        <text x="217" y="580" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">1,011 tracks · 30-dim vectors</text>
+        <text x="217" y="596" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">StandardScaler · cosine similarity search</text>
         <!-- horiz arrow Pinecone→MusicGen -->
-        <line x1="425" y1="565" x2="437" y2="565" stroke="#06d6a0" stroke-width="1.5"/>
-        <polygon points="435,560 443,565 435,570" fill="#06d6a0"/>
+        <line x1="425" y1="565" x2="437" y2="565" stroke="#3cba8a" stroke-width="1.5"/>
+        <polygon points="435,560 443,565 435,570" fill="#3cba8a"/>
 
         <!-- MusicGen -->
-        <rect x="445" y="520" width="405" height="90" rx="12" style="fill:#161b22" stroke="rgba(6,214,160,.4)" stroke-width="1.5"/>
-        <text x="647" y="540" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#06d6a0" text-anchor="middle" letter-spacing="1.2">M13b · MUSICGEN AUDIO SYNTHESIS</text>
-        <text x="647" y="560" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">🎼</text>
-        <text x="647" y="580" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">facebook/musicgen-small</text>
-        <text x="647" y="596" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">3× per run · season-aware prompt · GCS history</text>
+        <rect x="445" y="520" width="405" height="90" rx="12" style="fill:#18181f" stroke="rgba(60,186,138,.4)" stroke-width="1.5"/>
+        <text x="647" y="540" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#3cba8a" text-anchor="middle" letter-spacing="1.2">M13b · MUSICGEN AUDIO SYNTHESIS</text>
+        <text x="647" y="560" font-family="Space Grotesk,-apple-system,sans-serif" font-size="20" text-anchor="middle">🎼</text>
+        <text x="647" y="580" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">facebook/musicgen-small</text>
+        <text x="647" y="596" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">3× per run · season-aware prompt · GCS history</text>
 
         <!-- arrow 5 -->
-        <line x1="430" y1="610" x2="430" y2="642" stroke="#3d4451" stroke-width="1.5" stroke-dasharray="3,2"/>
-        <polygon points="423,640 437,640 430,650" fill="#3d4451"/>
+        <line x1="430" y1="610" x2="430" y2="642" stroke="#35354a" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <polygon points="423,640 437,640 430,650" fill="#35354a"/>
 
         <!-- LAYER 6 · SERVING -->
         <!-- FastAPI -->
-        <rect x="10"  y="650" width="267" height="90" rx="12" style="fill:#161b22" stroke="rgba(131,56,236,.4)" stroke-width="1.5"/>
-        <text x="143" y="670" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#8338ec" text-anchor="middle" letter-spacing="1.2">FASTAPI BACKEND</text>
-        <text x="143" y="690" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">⚡</text>
-        <text x="143" y="710" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">8 JSON endpoints</text>
-        <text x="143" y="726" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">BigQuery → REST · CORS</text>
+        <rect x="10"  y="650" width="267" height="90" rx="12" style="fill:#18181f" stroke="rgba(168,85,247,.4)" stroke-width="1.5"/>
+        <text x="143" y="670" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#a855f7" text-anchor="middle" letter-spacing="1.2">FASTAPI BACKEND</text>
+        <text x="143" y="690" font-family="Space Grotesk,-apple-system,sans-serif" font-size="20" text-anchor="middle">⚡</text>
+        <text x="143" y="710" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">8 JSON endpoints</text>
+        <text x="143" y="726" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">BigQuery → REST · CORS</text>
 
         <!-- Streamlit -->
-        <rect x="287" y="650" width="267" height="90" rx="12" style="fill:#161b22" stroke="rgba(131,56,236,.4)" stroke-width="1.5"/>
-        <text x="420" y="670" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#8338ec" text-anchor="middle" letter-spacing="1.2">STREAMLIT DASHBOARDS</text>
-        <text x="420" y="690" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">📈</text>
-        <text x="420" y="710" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">2 interactive dashboards</text>
-        <text x="420" y="726" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">Mood Intelligence · Trends</text>
+        <rect x="287" y="650" width="267" height="90" rx="12" style="fill:#18181f" stroke="rgba(168,85,247,.4)" stroke-width="1.5"/>
+        <text x="420" y="670" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#a855f7" text-anchor="middle" letter-spacing="1.2">STREAMLIT DASHBOARDS</text>
+        <text x="420" y="690" font-family="Space Grotesk,-apple-system,sans-serif" font-size="20" text-anchor="middle">📈</text>
+        <text x="420" y="710" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">2 interactive dashboards</text>
+        <text x="420" y="726" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">Mood Intelligence · Trends</text>
 
         <!-- GitHub Pages -->
-        <rect x="564" y="650" width="286" height="90" rx="12" style="fill:#161b22" stroke="rgba(131,56,236,.4)" stroke-width="1.5"/>
-        <text x="707" y="670" font-family="-apple-system,sans-serif" font-size="8" font-weight="700" fill="#8338ec" text-anchor="middle" letter-spacing="1.2">GITHUB PAGES (THIS SITE)</text>
-        <text x="707" y="690" font-family="-apple-system,sans-serif" font-size="20" text-anchor="middle">🌐</text>
-        <text x="707" y="710" font-family="-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e6edf3" text-anchor="middle">Static JSON + Plotly.js</text>
-        <text x="707" y="726" font-family="-apple-system,sans-serif" font-size="10"  fill="#7d8590" text-anchor="middle">3 songs + history archive · daily push</text>
+        <rect x="564" y="650" width="286" height="90" rx="12" style="fill:#18181f" stroke="rgba(168,85,247,.4)" stroke-width="1.5"/>
+        <text x="707" y="670" font-family="Space Grotesk,-apple-system,sans-serif" font-size="8" font-weight="700" fill="#a855f7" text-anchor="middle" letter-spacing="1.2">GITHUB PAGES (THIS SITE)</text>
+        <text x="707" y="690" font-family="Space Grotesk,-apple-system,sans-serif" font-size="20" text-anchor="middle">🌐</text>
+        <text x="707" y="710" font-family="Space Grotesk,-apple-system,sans-serif" font-size="11"  font-weight="600" fill="#e0ddd5" text-anchor="middle">Static JSON + Plotly.js</text>
+        <text x="707" y="726" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10"  fill="#807e76" text-anchor="middle">3 songs + history archive · daily push</text>
 
         <!-- ORCHESTRATION BAR -->
-        <rect x="10" y="757" width="840" height="40" rx="8" fill="rgba(88,166,255,.05)" stroke="rgba(88,166,255,.18)" stroke-width="1"/>
-        <text x="430" y="772" font-family="-apple-system,sans-serif" font-size="10" font-weight="700" fill="#58a6ff" text-anchor="middle">⏰  Prefect Cloud  ·  GitHub Actions worker  ·  Daily 02:00 UTC  ·  14 modules in dependency order  ·  auto-retry on failure  ·  smart resume (7-day gap backfill)</text>
-        <text x="430" y="789" font-family="-apple-system,sans-serif" font-size="9.5" fill="#4d5566" text-anchor="middle">soundpulse-production (BigQuery)  ·  soundpulse-bucket (GCS)  ·  Pinecone serverless  ·  GitHub Pages static export</text>
+        <rect x="10" y="757" width="840" height="40" rx="8" fill="rgba(232,93,38,.05)" stroke="rgba(232,93,38,.18)" stroke-width="1"/>
+        <text x="430" y="772" font-family="Space Grotesk,-apple-system,sans-serif" font-size="10" font-weight="700" fill="#e85d26" text-anchor="middle">⏰  Prefect Cloud  ·  GitHub Actions worker  ·  Daily 02:00 UTC  ·  14 modules in dependency order  ·  auto-retry on failure  ·  smart resume (7-day gap backfill)</text>
+        <text x="430" y="789" font-family="Space Grotesk,-apple-system,sans-serif" font-size="9.5" fill="#4a4a55" text-anchor="middle">soundpulse-production (BigQuery)  ·  soundpulse-bucket (GCS)  ·  Pinecone serverless  ·  GitHub Pages static export</text>
       </svg>
     </div>
     <div style="display:none">
 
       <!-- SOURCES -->
-      <div style="background:#161b22; border:1px solid rgba(239,71,111,.28); border-radius:12px; padding:18px 20px;">
-        <div style="font-size:.64rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#ef476f; margin-bottom:12px;">Data Sources · 6 APIs</div>
+      <div style="background:#18181f; border:1px solid rgba(214,64,69,.28); border-radius:4px; padding:18px 20px;">
+        <div style="font-size:.64rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#d64045; margin-bottom:12px;">Data Sources · 6 APIs</div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">📰 Guardian API</span>
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">📊 Billboard Hot 100</span>
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">🎵 iTunes + Last.fm</span>
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">📺 YouTube Trending</span>
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">💬 Reddit</span>
-          <span style="background:rgba(239,71,111,.1); border:1px solid rgba(239,71,111,.22); color:#e6edf3; border-radius:8px; padding:5px 13px; font-size:.82rem;">🎧 Spotify + Librosa</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">📰 Guardian API</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">📊 Billboard Hot 100</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">🎵 iTunes + Last.fm</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">📺 YouTube Trending</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">💬 Reddit</span>
+          <span style="background:rgba(214,64,69,.1); border:1px solid rgba(214,64,69,.22); color:#e0ddd5; border-radius:4px; padding:5px 13px; font-size:.82rem;">🎧 Spotify + Librosa</span>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#7d8590; font-size:.77rem;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#30363d);"></div>
-        <div style="text-align:center; flex-shrink:0;">Python batch scripts · REST APIs · JSONL files<br><span style="font-size:1.3rem; color:#ef476f; line-height:1.6;">↓</span></div>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,#30363d,transparent);"></div>
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#807e76; font-size:.77rem;">
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#35354a);"></div>
+        <div style="text-align:center; flex-shrink:0;">Python batch scripts · REST APIs · JSONL files<br><span style="font-size:1.3rem; color:#d64045; line-height:1.6;">↓</span></div>
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,#35354a,transparent);"></div>
       </div>
 
       <!-- INGESTION + STORAGE -->
       <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
-        <div style="background:#161b22; border:1px solid rgba(244,162,97,.28); border-radius:10px; padding:14px 12px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,151,62,.28); border-radius:4px; padding:14px 12px; text-align:center;">
           <div style="font-size:1.4rem; margin-bottom:6px;">🐍</div>
           <div style="font-weight:700; font-size:.82rem;">Ingestion Scripts</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">8 Python modules<br>Modules 1–6</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">8 Python modules<br>Modules 1–6</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(244,162,97,.28); border-radius:10px; padding:14px 12px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,151,62,.28); border-radius:4px; padding:14px 12px; text-align:center;">
           <div style="font-size:1.4rem; margin-bottom:6px;">🪣</div>
           <div style="font-weight:700; font-size:.82rem;">Cloud Storage</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">GCS JSONL lake<br>raw partitioned files</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">GCS JSONL lake<br>raw partitioned files</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(244,162,97,.28); border-radius:10px; padding:14px 12px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,151,62,.28); border-radius:4px; padding:14px 12px; text-align:center;">
           <div style="font-size:1.4rem; margin-bottom:6px;">📊</div>
           <div style="font-weight:700; font-size:.82rem;">BigQuery Raw</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">7 source tables<br>music_analytics dataset</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">7 source tables<br>music_analytics dataset</div>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#7d8590; font-size:.77rem;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#30363d);"></div>
-        <div style="text-align:center; flex-shrink:0;">dbt run + 82 data quality tests · Modules 7–8<br><span style="font-size:1.3rem; color:#ffd166; line-height:1.6;">↓</span></div>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,#30363d,transparent);"></div>
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#807e76; font-size:.77rem;">
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#35354a);"></div>
+        <div style="text-align:center; flex-shrink:0;">dbt run + 82 data quality tests · Modules 7–8<br><span style="font-size:1.3rem; color:#f0c246; line-height:1.6;">↓</span></div>
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,#35354a,transparent);"></div>
       </div>
 
       <!-- DBT -->
-      <div style="background:#161b22; border:1px solid rgba(255,209,102,.28); border-radius:12px; padding:18px 20px;">
-        <div style="font-size:.64rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#ffd166; margin-bottom:12px;">dbt Transformations · BigQuery dbt_transformed</div>
+      <div style="background:#18181f; border:1px solid rgba(240,194,70,.28); border-radius:4px; padding:18px 20px;">
+        <div style="font-size:.64rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#f0c246; margin-bottom:12px;">dbt Transformations · BigQuery dbt_transformed</div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
-          <span style="background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.2); color:#e6edf3; border-radius:8px; padding:4px 12px; font-size:.79rem;">15 staging views</span>
-          <span style="background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.2); color:#e6edf3; border-radius:8px; padding:4px 12px; font-size:.79rem;">5 mart tables</span>
-          <span style="background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.2); color:#e6edf3; border-radius:8px; padding:4px 12px; font-size:.79rem;">82 tests passing</span>
-          <span style="background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.2); color:#e6edf3; border-radius:8px; padding:4px 12px; font-size:.79rem;">CORR() native BigQuery</span>
-          <span style="background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.2); color:#e6edf3; border-radius:8px; padding:4px 12px; font-size:.79rem;">weekly_features joined table</span>
+          <span style="background:rgba(240,194,70,.08); border:1px solid rgba(240,194,70,.2); color:#e0ddd5; border-radius:4px; padding:4px 12px; font-size:.79rem;">15 staging views</span>
+          <span style="background:rgba(240,194,70,.08); border:1px solid rgba(240,194,70,.2); color:#e0ddd5; border-radius:4px; padding:4px 12px; font-size:.79rem;">5 mart tables</span>
+          <span style="background:rgba(240,194,70,.08); border:1px solid rgba(240,194,70,.2); color:#e0ddd5; border-radius:4px; padding:4px 12px; font-size:.79rem;">82 tests passing</span>
+          <span style="background:rgba(240,194,70,.08); border:1px solid rgba(240,194,70,.2); color:#e0ddd5; border-radius:4px; padding:4px 12px; font-size:.79rem;">CORR() native BigQuery</span>
+          <span style="background:rgba(240,194,70,.08); border:1px solid rgba(240,194,70,.2); color:#e0ddd5; border-radius:4px; padding:4px 12px; font-size:.79rem;">weekly_features joined table</span>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#7d8590; font-size:.77rem;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#30363d);"></div>
-        <div style="text-align:center; flex-shrink:0;">Emotion NLP → clustering → ML · Modules 9–12<br><span style="font-size:1.3rem; color:#58a6ff; line-height:1.6;">↓</span></div>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,#30363d,transparent);"></div>
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#807e76; font-size:.77rem;">
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#35354a);"></div>
+        <div style="text-align:center; flex-shrink:0;">Emotion NLP → clustering → ML · Modules 9–12<br><span style="font-size:1.3rem; color:#e85d26; line-height:1.6;">↓</span></div>
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,#35354a,transparent);"></div>
       </div>
 
       <!-- ANALYSIS LAYER -->
       <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
-        <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,93,38,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🤗</div>
           <div style="font-weight:700; font-size:.8rem;">Emotion NLP</div>
-          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">DistilRoBERTa<br>7 emotions · M9</div>
+          <div style="font-size:.7rem; color:#807e76; margin-top:4px; line-height:1.5;">DistilRoBERTa<br>7 emotions · M9</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,93,38,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🧩</div>
           <div style="font-weight:700; font-size:.8rem;">KMeans Cluster</div>
-          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">k=3 archetypes<br>Valence x Arousal · M10</div>
+          <div style="font-size:.7rem; color:#807e76; margin-top:4px; line-height:1.5;">k=3 archetypes<br>Valence x Arousal · M10</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,93,38,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">📐</div>
           <div style="font-weight:700; font-size:.8rem;">Pearson Corr.</div>
-          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">50 pairs<br>BigQuery · M11</div>
+          <div style="font-size:.7rem; color:#807e76; margin-top:4px; line-height:1.5;">50 pairs<br>BigQuery · M11</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(88,166,255,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(232,93,38,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🤖</div>
           <div style="font-weight:700; font-size:.8rem;">XGBoost + SHAP</div>
-          <div style="font-size:.7rem; color:#7d8590; margin-top:4px; line-height:1.5;">lag-1 · recency decay<br>feedback loop · M12</div>
+          <div style="font-size:.7rem; color:#807e76; margin-top:4px; line-height:1.5;">lag-1 · recency decay<br>feedback loop · M12</div>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#7d8590; font-size:.77rem;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#30363d);"></div>
-        <div style="text-align:center; flex-shrink:0;">Vector similarity search · audio generation · Module 13<br><span style="font-size:1.3rem; color:#06d6a0; line-height:1.6;">↓</span></div>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,#30363d,transparent);"></div>
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#807e76; font-size:.77rem;">
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#35354a);"></div>
+        <div style="text-align:center; flex-shrink:0;">Vector similarity search · audio generation · Module 13<br><span style="font-size:1.3rem; color:#3cba8a; line-height:1.6;">↓</span></div>
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,#35354a,transparent);"></div>
       </div>
 
       <!-- GENAI -->
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-        <div style="background:#161b22; border:1px solid rgba(6,214,160,.28); border-radius:10px; padding:16px 14px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(60,186,138,.28); border-radius:4px; padding:16px 14px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">📌</div>
           <div style="font-weight:700; font-size:.82rem;">Pinecone</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">1,011 tracks · 30-dim vectors<br>cosine similarity search</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">1,011 tracks · 30-dim vectors<br>cosine similarity search</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(6,214,160,.28); border-radius:10px; padding:16px 14px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(60,186,138,.28); border-radius:4px; padding:16px 14px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🎼</div>
           <div style="font-weight:700; font-size:.82rem;">MusicGen</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">facebook/musicgen-small<br>10-second AI audio clip</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">facebook/musicgen-small<br>10-second AI audio clip</div>
         </div>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#7d8590; font-size:.77rem;">
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#30363d);"></div>
-        <div style="text-align:center; flex-shrink:0;">FastAPI backend · static export to GitHub Pages · Module 14<br><span style="font-size:1.3rem; color:#8338ec; line-height:1.6;">↓</span></div>
-        <div style="flex:1; height:1px; background:linear-gradient(90deg,#30363d,transparent);"></div>
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; color:#807e76; font-size:.77rem;">
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,transparent,#35354a);"></div>
+        <div style="text-align:center; flex-shrink:0;">FastAPI backend · static export to GitHub Pages · Module 14<br><span style="font-size:1.3rem; color:#a855f7; line-height:1.6;">↓</span></div>
+        <div style="flex:1; height:1px; background:linear-gradient(90deg,#35354a,transparent);"></div>
       </div>
 
       <!-- SERVING -->
       <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
-        <div style="background:#161b22; border:1px solid rgba(131,56,236,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(168,85,247,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">⚡</div>
           <div style="font-weight:700; font-size:.82rem;">FastAPI</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">8 JSON endpoints<br>BigQuery → REST</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">8 JSON endpoints<br>BigQuery → REST</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(131,56,236,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(168,85,247,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">📈</div>
           <div style="font-weight:700; font-size:.82rem;">Streamlit</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">2 interactive dashboards<br>Mood · Trends</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">2 interactive dashboards<br>Mood · Trends</div>
         </div>
-        <div style="background:#161b22; border:1px solid rgba(131,56,236,.28); border-radius:10px; padding:14px 10px; text-align:center;">
+        <div style="background:#18181f; border:1px solid rgba(168,85,247,.28); border-radius:4px; padding:14px 10px; text-align:center;">
           <div style="font-size:1.3rem; margin-bottom:6px;">🌐</div>
           <div style="font-weight:700; font-size:.82rem;">GitHub Pages</div>
-          <div style="font-size:.72rem; color:#7d8590; margin-top:4px; line-height:1.5;">Static JSON export<br>Plotly.js charts</div>
+          <div style="font-size:.72rem; color:#807e76; margin-top:4px; line-height:1.5;">Static JSON export<br>Plotly.js charts</div>
         </div>
       </div>
 
@@ -1024,22 +1037,22 @@
   <!-- CHART EXPLANATIONS -->
   <section style="max-width:1100px; margin:0 auto; padding:16px 24px 64px;">
     <div class="section-label">Reading the Charts</div>
-    <h2 style="margin-bottom:8px;">What each visualisation actually tells you</h2>
-    <p style="color:#8b949e; font-size:.95rem; margin-bottom:32px; max-width:600px;">
-      None of these charts are decorative. Each one answers a specific question about the emotion–music relationship.
+    <h2 style="margin-bottom:8px;">Interpreting Each Visualisation</h2>
+    <p style="color:#807e76; font-size:.95rem; margin-bottom:32px; max-width:600px;">
+      Every chart maps a specific link in the emotion-to-music chain. Here's what to look for.
     </p>
 
     <div style="display:flex; flex-direction:column; gap:16px;">
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
         <div>
-          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Correlation Heatmap</div>
+          <div style="font-size:.72rem; font-weight:700; color:#807e76; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Correlation Heatmap</div>
           <div style="font-size:1.4rem;">📊</div>
-          <div id="chart-explain-corr" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+          <div id="chart-explain-corr" style="margin-top:8px; font-size:.82rem; color:#e85d26; line-height:1.5;">Loading…</div>
         </div>
         <div>
-          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Does world sentiment actually correlate with music mood?</p>
-          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+          <p style="font-size:.9rem; color:#e0ddd5; font-weight:600; margin-bottom:8px;">World sentiment correlates measurably with music mood.</p>
+          <p style="font-size:.85rem; color:#807e76; line-height:1.8;">
             Each cell shows the Pearson r between a news emotion score (y-axis) and the percentage of trending songs
             assigned to a mood archetype (x-axis), across all 52 weeks. Red = positive correlation, blue = negative.
             Cells marked ★ are statistically notable (|r| ≥ 0.3). The strongest positive correlation tells you which
@@ -1049,15 +1062,15 @@
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
         <div>
-          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">World Events Timeline</div>
+          <div style="font-size:.72rem; font-weight:700; color:#807e76; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">World Events Timeline</div>
           <div style="font-size:1.4rem;">📈</div>
-          <div id="chart-explain-timeline" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+          <div id="chart-explain-timeline" style="margin-top:8px; font-size:.82rem; color:#e85d26; line-height:1.5;">Loading…</div>
         </div>
         <div>
-          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">How do sentiment indices move week by week — and does the music follow?</p>
-          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+          <p style="font-size:.9rem; color:#e0ddd5; font-weight:600; margin-bottom:8px;">Sentiment indices shift week by week — and the music follows.</p>
+          <p style="font-size:.85rem; color:#807e76; line-height:1.8;">
             The three lines are composite indices: Anxiety (fear + sadness), Tension (anger + disgust), and Positivity (joy + surprise).
             The dots on the right axis show what mood dominated the charts that week.
             This is the raw visual proof of the hypothesis. Look for weeks where anxiety or tension
@@ -1067,15 +1080,15 @@
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
         <div>
-          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Feature Importance</div>
+          <div style="font-size:.72rem; font-weight:700; color:#807e76; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Feature Importance</div>
           <div style="font-size:1.4rem;">🔬</div>
-          <div id="chart-explain-shap" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+          <div id="chart-explain-shap" style="margin-top:8px; font-size:.82rem; color:#e85d26; line-height:1.5;">Loading…</div>
         </div>
         <div>
-          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Which emotions are the strongest predictors of each music mood?</p>
-          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+          <p style="font-size:.9rem; color:#e0ddd5; font-weight:600; margin-bottom:8px;">Seasonal timing and fear dominate as predictors of chart mood.</p>
+          <p style="font-size:.85rem; color:#807e76; line-height:1.8;">
             Point-biserial correlation between each emotion feature and each mood archetype's binary label.
             Positive values mean "when this emotion is high, this mood tends to dominate." Negative means the opposite.
             The standout finding: <strong>seasonal timing (week-of-year) and prior mood percentages are the top predictors</strong> — the model captures cyclical patterns in how chart moods shift through the year. Among news emotions, <strong>avg_fear</strong> is the strongest signal, confirming that heightened anxiety in the news correlates with shifts in chart mood.
@@ -1083,15 +1096,15 @@
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
         <div>
-          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Mood Radar</div>
+          <div style="font-size:.72rem; font-weight:700; color:#807e76; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">Mood Radar</div>
           <div style="font-size:1.4rem;">🕸️</div>
-          <div id="chart-explain-radar" style="margin-top:8px; font-size:.82rem; color:#58a6ff; line-height:1.5;">Loading…</div>
+          <div id="chart-explain-radar" style="margin-top:8px; font-size:.82rem; color:#e85d26; line-height:1.5;">Loading…</div>
         </div>
         <div>
-          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">Do different chart sources have different emotional personalities?</p>
-          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+          <p style="font-size:.9rem; color:#e0ddd5; font-weight:600; margin-bottom:8px;">Each region has a distinct sonic personality.</p>
+          <p style="font-size:.85rem; color:#807e76; line-height:1.8;">
             Each line on the radar is a chart source (Hot 100, Latin, Dance Club Play, etc.) and the
             five axes are the mood archetypes. A pointy spike towards "aggressive" means that source
             is dominated by aggressive-sounding songs this week. Compare Hot 100 vs Latin charts —
@@ -1100,14 +1113,14 @@
         </div>
       </div>
 
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
+      <div style="background:#18181f; border:1px solid #35354a; border-radius:4px; padding:24px; display:grid; grid-template-columns:180px 1fr; gap:20px; align-items:start;">
         <div>
-          <div style="font-size:.72rem; font-weight:700; color:#8b949e; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">AI Generation</div>
+          <div style="font-size:.72rem; font-weight:700; color:#807e76; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">AI Generation</div>
           <div style="font-size:1.4rem;">🤖</div>
         </div>
         <div>
-          <p style="font-size:.9rem; color:#e6edf3; font-weight:600; margin-bottom:8px;">What does next week's music actually sound like?</p>
-          <p style="font-size:.85rem; color:#8b949e; line-height:1.8;">
+          <p style="font-size:.9rem; color:#e0ddd5; font-weight:600; margin-bottom:8px;">The predicted mood, synthesized into audio.</p>
+          <p style="font-size:.85rem; color:#807e76; line-height:1.8;">
             The pipeline takes the XGBoost prediction, queries the Pinecone index for the 10 most
             sonically similar real tracks to that mood (by cosine similarity on 30 acoustic features),
             averages their audio DNA into a single profile, translates that profile into a natural
@@ -1123,12 +1136,12 @@
   <!-- DYNAMIC INSIGHTS -->
   <section style="max-width:1100px; margin:0 auto; padding:0 24px 64px;">
     <div class="section-label">Live Findings</div>
-    <h2 style="margin-bottom:8px;">What the data actually shows</h2>
-    <p style="color:#8b949e; font-size:.95rem; margin-bottom:28px; max-width:600px;">
+    <h2 style="margin-bottom:8px;">Key Signals from the Pipeline</h2>
+    <p style="color:#807e76; font-size:.95rem; margin-bottom:28px; max-width:600px;">
       Generated from the real pipeline data, not written manually.
     </p>
     <div id="dynamic-insights" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;">
-      <div style="color:#8b949e; font-size:.9rem; padding:20px;">Loading insights…</div>
+      <div style="color:#807e76; font-size:.9rem; padding:20px;">Loading insights…</div>
     </div>
   </section>
 
@@ -1141,17 +1154,17 @@
   border-bottom:1px solid var(--border);
   padding:10px 24px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
   <span style="font-size:.72rem; font-weight:700; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; flex-shrink:0;">Filter region:</span>
-  <button class="region-tab active" data-region="global"        onclick="selectRegion('global')">🌐 Global</button>
-  <button class="region-tab"        data-region="north_america" onclick="selectRegion('north_america')">🇺🇸 N. America</button>
-  <button class="region-tab"        data-region="latin_america" onclick="selectRegion('latin_america')">🌎 Latin America</button>
-  <button class="region-tab"        data-region="europe"        onclick="selectRegion('europe')">🌍 Europe</button>
+  <button class="region-tab active" data-region="global"        onclick="selectRegion('global')">Global</button>
+  <button class="region-tab"        data-region="north_america" onclick="selectRegion('north_america')">N. America</button>
+  <button class="region-tab"        data-region="latin_america" onclick="selectRegion('latin_america')">Latin America</button>
+  <button class="region-tab"        data-region="europe"        onclick="selectRegion('europe')">Europe</button>
   <span style="margin-left:auto; font-size:.72rem; color:var(--muted);" id="region-filter-note">Filters: Audio · Correlation · Timeline · SHAP · Song Archive</span>
 </div>
 
 <!-- SECTION 1 — CORRELATION -->
 <section id="correlation">
   <div class="section-label">Module 11 · Pearson r</div>
-  <h2>News Emotions → Music Mood Correlation</h2>
+  <h2>News Emotion vs. Music Mood Correlation</h2>
   <p class="subtitle">
     Pearson r computed between 64 weeks of DistilRoBERTa emotion scores from Guardian news
     and KMeans audio mood archetype percentages per region. Notable pairs (|r| ≥ 0.3) are marked ★.
@@ -1196,15 +1209,15 @@
   </div>
 
   <!-- Rolling accuracy (feedback loop) -->
-  <div id="rolling-accuracy-bar" style="margin:18px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 22px; display:none;">
+  <div id="rolling-accuracy-bar" style="margin:18px 0; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:16px 22px; display:none;">
     <div style="font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin-bottom:10px;">Live Feedback Loop · Rolling 8-Week Accuracy</div>
     <div style="display:flex; gap:28px; flex-wrap:wrap; align-items:center;">
       <div style="text-align:center;">
-        <div id="rolling-acc-value" style="font-size:2rem; font-weight:800; color:#06d6a0;">—</div>
+        <div id="rolling-acc-value" style="font-size:2rem; font-weight:800; color:#3cba8a;">—</div>
         <div style="font-size:.72rem; color:var(--muted); margin-top:2px;">Rolling Accuracy</div>
       </div>
       <div style="text-align:center;">
-        <div id="rolling-acc-n" style="font-size:2rem; font-weight:800; color:#58a6ff;">—</div>
+        <div id="rolling-acc-n" style="font-size:2rem; font-weight:800; color:#e85d26;">—</div>
         <div style="font-size:.72rem; color:var(--muted); margin-top:2px;">Predictions Validated</div>
       </div>
       <div style="flex:1; min-width:200px;">
@@ -1302,10 +1315,10 @@
     They run locally — start them with the commands below and they embed directly here.
   </p>
 
-  <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin-bottom:28px; display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start;">
+  <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:20px 24px; margin-bottom:28px; display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start;">
     <div style="flex:1; min-width:260px;">
       <div style="font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:8px;">To launch locally</div>
-      <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; font-size:.82rem; font-family:monospace; color:#79c0ff; line-height:2;">
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:14px 16px; font-size:.82rem; font-family:monospace; color:#e8973e; line-height:2;">
         <span style="color:var(--muted)"># Terminal 1</span><br>
         uvicorn serving.api:app --port 8000<br>
         <span style="color:var(--muted)"># Terminal 2</span><br>
@@ -1317,12 +1330,12 @@
     <div style="flex:1; min-width:220px;">
       <div style="font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:8px;">What each dashboard shows</div>
       <div style="display:flex; flex-direction:column; gap:10px;">
-        <div style="background:rgba(88,166,255,.06); border:1px solid rgba(88,166,255,.15); border-radius:8px; padding:10px 14px;">
-          <div style="font-weight:700; font-size:.85rem; color:var(--accent);">🧠 Mood Intelligence · :8501</div>
+        <div style="background:rgba(232,93,38,.06); border:1px solid rgba(232,93,38,.15); border-radius:4px; padding:10px 14px;">
+          <div style="font-weight:700; font-size:.85rem; color:var(--accent);">Mood Intelligence  //  :8501</div>
           <div style="font-size:.78rem; color:var(--muted); margin-top:4px; line-height:1.6;">Correlation heatmap · dual-axis world events timeline · SHAP feature importance · prediction scorecard</div>
         </div>
-        <div style="background:rgba(131,56,236,.06); border:1px solid rgba(131,56,236,.2); border-radius:8px; padding:10px 14px;">
-          <div style="font-weight:700; font-size:.85rem; color:#8338ec;">🎵 Music Trends · :8502</div>
+        <div style="background:rgba(168,85,247,.06); border:1px solid rgba(168,85,247,.2); border-radius:4px; padding:10px 14px;">
+          <div style="font-weight:700; font-size:.85rem; color:#a855f7;">Music Trends  //  :8502</div>
           <div style="font-size:.78rem; color:var(--muted); margin-top:4px; line-height:1.6;">Cross-platform mood radar · mood timeline by source · news sentiment heatmap · AI generation log</div>
         </div>
       </div>
@@ -1332,10 +1345,10 @@
   <!-- Dashboard 1 -->
   <div style="margin-bottom:24px;">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <span style="font-weight:700; font-size:.95rem;">🧠 Dashboard 1 — Mood Intelligence</span>
+      <span style="font-weight:700; font-size:.95rem;">Dashboard 1 — Mood Intelligence</span>
       <span id="dash1-status" style="font-size:.72rem; color:var(--muted);">Checking…</span>
     </div>
-    <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:14px; overflow:hidden; position:relative;">
+    <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:4px; overflow:hidden; position:relative;">
       <iframe
         id="dash1-frame"
         class="dash-embed"
@@ -1356,10 +1369,10 @@
   <!-- Dashboard 2 -->
   <div>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <span style="font-weight:700; font-size:.95rem;">🎵 Dashboard 2 — Music Trends</span>
+      <span style="font-weight:700; font-size:.95rem;">Dashboard 2 — Music Trends</span>
       <span id="dash2-status" style="font-size:.72rem; color:var(--muted);">Checking…</span>
     </div>
-    <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:14px; overflow:hidden; position:relative;">
+    <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:4px; overflow:hidden; position:relative;">
       <iframe
         id="dash2-frame"
         class="dash-embed"
@@ -1405,7 +1418,7 @@
     <div id="runs-table-body">
       <div style="padding:40px; text-align:center; color:var(--muted); font-size:.88rem;">
         No run history yet — the pipeline will populate this after the first scheduled run.<br>
-        <span style="font-size:.78rem; margin-top:6px; display:block;">Or trigger a manual run: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#79c0ff;">python orchestration/prefect_pipeline.py</code></span>
+        <span style="font-size:.78rem; margin-top:6px; display:block;">Or trigger a manual run: <code style="background:var(--bg); padding:2px 8px; border-radius:4px; color:#e8973e;">python orchestration/prefect_pipeline.py</code></span>
       </div>
     </div>
   </div>
@@ -1423,20 +1436,20 @@
   <h2>14-Module Pipeline</h2>
   <p class="subtitle">End-to-end data engineering, ML, and GenAI — all on free-tier services.</p>
   <div class="tech-grid">
-    <span class="tech-pill">🐍 Python 3.12</span>
-    <span class="tech-pill">☁️ BigQuery</span>
-    <span class="tech-pill">🪣 Google Cloud Storage</span>
-    <span class="tech-pill">🔄 dbt-bigquery</span>
-    <span class="tech-pill">🤗 DistilRoBERTa</span>
-    <span class="tech-pill">🎵 Librosa</span>
-    <span class="tech-pill">🤖 XGBoost + SHAP</span>
-    <span class="tech-pill">🧠 KMeans (scikit-learn)</span>
-    <span class="tech-pill">📌 Pinecone (vector DB)</span>
-    <span class="tech-pill">🎼 MusicGen-small</span>
-    <span class="tech-pill">⚡ FastAPI</span>
-    <span class="tech-pill">📊 Streamlit</span>
-    <span class="tech-pill">🔀 Prefect (orchestration)</span>
-    <span class="tech-pill">📈 Plotly</span>
+    <span class="tech-pill">Python 3.12</span>
+    <span class="tech-pill">BigQuery</span>
+    <span class="tech-pill">Google Cloud Storage</span>
+    <span class="tech-pill">dbt-bigquery</span>
+    <span class="tech-pill">DistilRoBERTa</span>
+    <span class="tech-pill">Librosa</span>
+    <span class="tech-pill">XGBoost + SHAP</span>
+    <span class="tech-pill">KMeans</span>
+    <span class="tech-pill">Pinecone</span>
+    <span class="tech-pill">MusicGen-small</span>
+    <span class="tech-pill">FastAPI</span>
+    <span class="tech-pill">Streamlit</span>
+    <span class="tech-pill">Prefect</span>
+    <span class="tech-pill">Plotly</span>
   </div>
 </section>
 
@@ -1467,11 +1480,11 @@
 // Config
 
 const MOOD_COLORS = {
-  euphoric:    '#ffd166',
-  melancholic: '#118ab2',
-  aggressive:  '#ef476f',
-  peaceful:    '#06d6a0',
-  groovy:      '#8338ec',
+  euphoric:    '#f0c246',
+  melancholic: '#4a7fb5',
+  aggressive:  '#d64045',
+  peaceful:    '#3cba8a',
+  groovy:      '#a855f7',
 };
 const MOOD_COLS  = ['euphoric_pct','melancholic_pct','aggressive_pct','peaceful_pct','groovy_pct'];
 const MOOD_LABELS= ['Euphoric','Melancholic','Aggressive','Peaceful','Groovy'];
@@ -1479,9 +1492,9 @@ const MOOD_LABELS= ['Euphoric','Melancholic','Aggressive','Peaceful','Groovy'];
 const PLOTLY_LAYOUT = {
   paper_bgcolor: 'transparent',
   plot_bgcolor:  'transparent',
-  font:          { color: '#e6edf3', family: '-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif' },
-  xaxis:         { gridcolor: '#30363d', linecolor: '#30363d', zerolinecolor: '#30363d' },
-  yaxis:         { gridcolor: '#30363d', linecolor: '#30363d', zerolinecolor: '#30363d' },
+  font:          { color: '#e0ddd5', family: '"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' },
+  xaxis:         { gridcolor: '#35354a', linecolor: '#35354a', zerolinecolor: '#35354a' },
+  yaxis:         { gridcolor: '#35354a', linecolor: '#35354a', zerolinecolor: '#35354a' },
   margin:        { l: 10, r: 10, t: 30, b: 40 },
   legend:        { bgcolor: 'transparent' },
   autosize:      true,
@@ -1532,8 +1545,8 @@ window.selectRegion = function(region) {
 
   // Update SHAP region label
   const REGION_LABELS_SHORT = {
-    global: 'Global', north_america: 'N. America',
-    latin_america: 'Latin America', europe: 'Europe',
+    global: 'GLOBAL', north_america: 'N. AMERICA',
+    latin_america: 'LATIN AMERICA', europe: 'EUROPE',
   };
   const shapLabel = document.getElementById('shap-region-label');
   if (shapLabel) shapLabel.textContent = REGION_LABELS_SHORT[region] || region;
@@ -1561,7 +1574,7 @@ window.selectRegion = function(region) {
     if (!noData) {
       const msg = document.createElement('div');
       msg.id = 'audio-no-data';
-      msg.style.cssText = 'text-align:center;color:#7d8590;font-size:.9rem;padding:40px 20px;max-width:500px;margin:20px auto;';
+      msg.style.cssText = 'text-align:center;color:#807e76;font-size:.9rem;padding:40px 20px;max-width:500px;margin:20px auto;';
       msg.innerHTML = 'No songs generated for this region yet. Data accumulates from daily pipeline runs.';
       grid.parentNode.insertBefore(msg, grid.nextSibling);
     } else {
@@ -1687,9 +1700,9 @@ function renderTimeline(region) {
   const weeks = data.map(d => d.week_start);
 
   const indexTraces = [
-    { key: 'anxiety_index', name: 'Anxiety', color: '#ef476f' },
-    { key: 'tension_index', name: 'Tension', color: '#f4a261' },
-    { key: 'positivity_index', name: 'Positivity', color: '#06d6a0' },
+    { key: 'anxiety_index', name: 'Anxiety', color: '#d64045' },
+    { key: 'tension_index', name: 'Tension', color: '#e8973e' },
+    { key: 'positivity_index', name: 'Positivity', color: '#3cba8a' },
   ].map(({ key, name, color }) => ({
     type: 'scatter', mode: 'lines+markers',
     x: weeks, y: data.map(d => d[key]),
@@ -1720,7 +1733,7 @@ function renderTimeline(region) {
       overlaying: 'y', side: 'right', title: '',
       tickvals: [0,1,2,3,4],
       ticktext: ['Groovy','Peaceful','Aggressive','Melancholic','Euphoric'],
-      range: [-0.8, 5.5], gridcolor: '#30363d', showgrid: false,
+      range: [-0.8, 5.5], gridcolor: '#35354a', showgrid: false,
       tickfont: { size: 11 },
     },
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: 'Week' },
@@ -1880,16 +1893,16 @@ async function initTrends() {
   if (!data || !data.length) return;
 
   const REGION_COLORS = {
-    global:        '#58a6ff',
-    north_america: '#ffd166',
-    latin_america: '#ef476f',
-    europe:        '#06d6a0',
+    global:        '#e85d26',
+    north_america: '#f0c246',
+    latin_america: '#d64045',
+    europe:        '#3cba8a',
   };
   const REGION_LABELS = {
-    global:        '🌐 Global',
-    north_america: '🇺🇸 N. America',
-    latin_america: '🌎 Latin America',
-    europe:        '🌍 Europe',
+    global:        'Global',
+    north_america: 'N. America',
+    latin_america: 'Latin America',
+    europe:        'Europe',
   };
 
   // Latest week radar — one polygon per region
@@ -1916,12 +1929,12 @@ async function initTrends() {
     height: 480,
     polar: {
       domain: { x: [0, 0.60], y: [0.04, 0.96] },
-      radialaxis: { visible: true, range: [0, 1], tickformat: '.0%', gridcolor: '#30363d', tickfont: { size: 9 } },
-      angularaxis: { gridcolor: '#30363d', linecolor: '#30363d', tickfont: { size: 12, color: '#e6edf3' } },
+      radialaxis: { visible: true, range: [0, 1], tickformat: '.0%', gridcolor: '#35354a', tickfont: { size: 9 } },
+      angularaxis: { gridcolor: '#35354a', linecolor: '#35354a', tickfont: { size: 12, color: '#e0ddd5' } },
       bgcolor: 'transparent',
     },
     legend: { x: 0.63, y: 1, xanchor: 'left', yanchor: 'top', bgcolor: 'transparent', font: { size: 12 } },
-    title: { text: `Week of ${maxWeek}`, font: { size: 12, color: '#7d8590' }, x: 0.30, y: 0.995 },
+    title: { text: `Week of ${maxWeek}`, font: { size: 12, color: '#807e76' }, x: 0.30, y: 0.995 },
     margin: { l: 35, r: 20, t: 30, b: 20 },
   }, CONFIG);
 
@@ -1992,8 +2005,8 @@ async function initSentiment() {
   // Stacked bar: dominant emotion per topic across all weeks
   const emotions = ['fear','anger','joy','sadness','surprise','disgust','neutral'];
   const emotionColors = {
-    fear: '#ef476f', anger: '#f4a261', joy: '#ffd166', sadness: '#118ab2',
-    surprise: '#8338ec', disgust: '#06d6a0', neutral: '#8b949e',
+    fear: '#d64045', anger: '#e8973e', joy: '#f0c246', sadness: '#4a7fb5',
+    surprise: '#a855f7', disgust: '#3cba8a', neutral: '#8b949e',
   };
 
   const emotionCounts = {};
@@ -2059,11 +2072,11 @@ async function initAITrack() {
   document.getElementById('prompt-breakdown').innerHTML = `
     <div style="display:flex; gap:8px; margin-bottom:12px;">
       <button onclick="showTrack('daily')" id="btn-daily"
-        style="padding:4px 14px; border-radius:20px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:.78rem; cursor:pointer; font-weight:600">
+        style="padding:4px 14px; border-radius:2px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:.78rem; cursor:pointer; font-weight:600">
         Daily
       </button>
       <button onclick="showTrack('weekly')" id="btn-weekly"
-        style="padding:4px 14px; border-radius:20px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.78rem; cursor:pointer">
+        style="padding:4px 14px; border-radius:2px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.78rem; cursor:pointer">
         Weekly
       </button>
     </div>
@@ -2230,10 +2243,10 @@ function probeDashboard(port, frameId, fallbackId, statusId) {
   const fallback = document.getElementById(fallbackId);
   const status   = document.getElementById(statusId);
 
-  if (status) { status.textContent = '🟡 Waking up...'; status.style.color = '#ffd166'; }
+  if (status) { status.textContent = '🟡 Waking up...'; status.style.color = '#f0c246'; }
 
   const timer = setTimeout(() => {
-    if (status) { status.textContent = '🟡 Still loading (Streamlit sleeps after inactivity)'; status.style.color = '#ffd166'; }
+    if (status) { status.textContent = '🟡 Still loading (Streamlit sleeps after inactivity)'; status.style.color = '#f0c246'; }
   }, 30000);
 
   if (frame) {
@@ -2309,14 +2322,14 @@ async function initRunHistory() {
       type: 'bar', name: 'Success',
       x: ok.map(r => (r.started_at||'').slice(0,10)),
       y: ok.map(r => Math.round((r.duration_seconds||0)/60)),
-      marker: { color: '#06d6a0', opacity: 0.85 },
+      marker: { color: '#3cba8a', opacity: 0.85 },
       hovertemplate: '%{x}<br>%{y} min<extra>success</extra>',
     },
     {
       type: 'bar', name: 'Failed',
       x: err.map(r => (r.started_at||'').slice(0,10)),
       y: err.map(r => Math.round((r.duration_seconds||0)/60) || 1),
-      marker: { color: '#ef476f', opacity: 0.85 },
+      marker: { color: '#d64045', opacity: 0.85 },
       hovertemplate: '%{x}<br>%{y} min<extra>failed</extra>',
     },
   ], {
@@ -2330,12 +2343,12 @@ async function initRunHistory() {
     shapes: [{
       type: 'line', x0: 0, x1: 1, xref: 'paper',
       y0: Math.round(avgDur/60), y1: Math.round(avgDur/60), yref: 'y',
-      line: { color: '#ffd166', width: 1, dash: 'dot' },
+      line: { color: '#f0c246', width: 1, dash: 'dot' },
     }],
     annotations: [{
       x: 1, xref:'paper', y: Math.round(avgDur/60), yref:'y',
       text: `avg ${Math.round(avgDur/60)}m`, showarrow:false,
-      xanchor:'right', font:{size:10, color:'#ffd166'},
+      xanchor:'right', font:{size:10, color:'#f0c246'},
     }],
   }, CONFIG);
 }
@@ -2420,10 +2433,10 @@ async function initRollingAccuracy() {
       if (d.correct == null) return;
       const badge = document.createElement('span');
       badge.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
-        border-radius:20px;font-size:.72rem;font-weight:600;
-        background:${d.correct ? 'rgba(6,214,160,.12)' : 'rgba(239,71,111,.12)'};
-        border:1px solid ${d.correct ? '#06d6a0' : '#ef476f'};
-        color:${d.correct ? '#06d6a0' : '#ef476f'}`;
+        border-radius:2px;font-size:.72rem;font-weight:600;
+        background:${d.correct ? 'rgba(60,186,138,.12)' : 'rgba(214,64,69,.12)'};
+        border:1px solid ${d.correct ? '#3cba8a' : '#d64045'};
+        color:${d.correct ? '#3cba8a' : '#d64045'}`;
       badge.textContent = `${d.week_start?.slice(0,7)} ${d.period}: ${d.predicted_mood}`;
       badge.title       = `Actual: ${d.actual_mood} · ${d.correct ? '✓ correct' : '✗ wrong'}`;
       bar.appendChild(badge);
